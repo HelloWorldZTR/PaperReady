@@ -185,6 +185,11 @@ class TaskRetryRequest(BaseModel):
     step: Literal["locator", "downloader", "parser", "evaluator", "summarizer"] | None = None
 
 
+class TaskResolveRequest(BaseModel):
+    candidate_index: int | None = None
+    paper: PaperRecord | None = None
+
+
 class ExportRequest(BaseModel):
     task_ids: list[str]
     include_pdf: bool = True

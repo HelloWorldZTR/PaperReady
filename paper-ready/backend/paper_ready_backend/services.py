@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from .models import AppSettings, PaperTask, TaskRetryRequest
+from .models import AppSettings, PaperTask, TaskResolveRequest, TaskRetryRequest
 from .modules.downloader import acquire_pdf
 from .modules.evaluator import evaluate_task, override_recommendation
 from .modules.input_classifier import create_tasks, detect_input_type
-from .modules.locator import locate_paper
+from .modules.locator import apply_resolved_paper, locate_paper, resolve_candidate
 from .modules.parser import parse_pdf
 from .modules.summarizer import estimate_report_cost, generate_report
 from .modules.zotero import export_to_zotero, mark_exported
@@ -27,3 +27,13 @@ def retry_task(task: PaperTask, request: TaskRetryRequest, settings: AppSettings
     """Reset a task from a pipeline step and immediately process it."""
     reset = default_pipeline().reset_from(task, request.step)
     return process_task(reset, settings)
+
+
+def resolve_task(task: PaperTask, request: TaskResolveRequest) -> PaperTask:
+    """Resolve a user-blocked disambiguation task from candidate or metadata."""
+    if request.paper:
+        return apply_resolved_paper(task, request.paper)
+    if request.candidate_index is not None:
+        return resolve_candidate(task, request.candidate_index)
+    task.failure_reason = "No candidate index or paper metadata provided"
+    return task

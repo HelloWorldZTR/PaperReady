@@ -15,6 +15,7 @@ from .models import (
     RecommendationOverride,
     ReportRequest,
     TaskCreateRequest,
+    TaskResolveRequest,
     TaskRetryRequest,
 )
 from .services import (
@@ -24,6 +25,7 @@ from .services import (
     export_to_zotero,
     override_recommendation,
     process_task,
+    resolve_task,
     retry_task,
 )
 from .worker import worker_manager
@@ -137,6 +139,13 @@ def post_process_task(task_id: str) -> PaperTask:
 def post_retry_task(task_id: str, request: TaskRetryRequest) -> PaperTask:
     """Reset one task from a pipeline step and run automatic processing."""
     task = retry_task(_load_task(task_id), request, database.get_settings())
+    return database.save_task(task)
+
+
+@app.post("/tasks/{task_id}/resolve", response_model=PaperTask)
+def post_resolve_task(task_id: str, request: TaskResolveRequest) -> PaperTask:
+    """Resolve one task that is paused for user disambiguation."""
+    task = resolve_task(_load_task(task_id), request)
     return database.save_task(task)
 
 

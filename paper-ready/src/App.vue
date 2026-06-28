@@ -180,6 +180,23 @@ async function retryTask(task, step) {
   }
 }
 
+/** Resolve a task that is paused for candidate disambiguation. */
+async function resolveTask(task, candidateIndex) {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    await api(`/tasks/${task.task_id}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ candidate_index: candidateIndex }),
+    });
+    await refreshTasks();
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
 /** Apply a user recommendation override to one row. */
 async function overrideRecommendation(task, value) {
   loading.value = true;
@@ -284,6 +301,7 @@ onMounted(initialize);
           @override-recommendation="overrideRecommendation"
           @process-all="processAll"
           @refresh="refreshTasks"
+          @resolve-task="resolveTask"
           @retry-task="retryTask"
           @run-worker-once="runWorkerOnce"
           @set-worker-running="setWorkerRunning"

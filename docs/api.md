@@ -115,6 +115,8 @@ Replaces persisted settings. Important fields include:
 LLM-backed locator, evaluator, and summarizer calls use `api_key`,
 `llm_api_base_url`, and the relevant stage model. If no API key is configured
 or the provider call fails, modules fall back to deterministic local behavior.
+The locator also tries deterministic metadata lookups through arXiv Atom and
+Crossref before using LLM or local fallback behavior.
 
 ## Tasks
 
@@ -163,6 +165,35 @@ Request:
 Allowed steps are `locator`, `downloader`, `parser`, `evaluator`, and
 `summarizer`. If `step` is omitted, the backend infers a retry point from the
 current task state.
+
+### `POST /tasks/{task_id}/resolve`
+
+Resolves a task paused at `Needs disambiguation`. The user may choose a
+candidate produced by the locator or provide edited paper metadata.
+
+Candidate request:
+
+```json
+{ "candidate_index": 0 }
+```
+
+Edited metadata request:
+
+```json
+{
+  "paper": {
+    "title": "Chosen Paper",
+    "authors": ["Ada Lovelace"],
+    "doi": "10.1000/example",
+    "urls": ["https://doi.org/10.1000/example"],
+    "source_confidence": 1.0,
+    "resolution_source": "user"
+  }
+}
+```
+
+Resolving a task clears downstream PDF, parser, evaluation, and report outputs
+so the pipeline can continue from the selected identity.
 
 ### `POST /tasks/process-all`
 

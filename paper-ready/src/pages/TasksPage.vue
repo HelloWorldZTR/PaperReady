@@ -16,6 +16,7 @@ const emit = defineEmits([
   "override-recommendation",
   "process-all",
   "refresh",
+  "resolve-task",
   "retry-task",
   "run-worker-once",
   "set-worker-running",
@@ -45,6 +46,11 @@ function choices(task) {
 /** Return true when a task can generate a report from the table. */
 function canGenerate(task) {
   return task.status === "Ready for report" || task.status === "Needs review";
+}
+
+/** Return candidate records for a disambiguation task. */
+function candidates(task) {
+  return task.paper?.candidate_records || [];
 }
 </script>
 
@@ -116,6 +122,27 @@ function canGenerate(task) {
             <td class="paper-cell">
               <strong>{{ task.paper?.title || task.raw_input }}</strong>
               <small>{{ task.input_type }} · {{ task.status }}</small>
+              <div v-if="candidates(task).length" class="candidate-list">
+                <div
+                  v-for="(candidate, index) in candidates(task)"
+                  :key="`${task.task_id}-${index}`"
+                  class="candidate-row"
+                >
+                  <span>
+                    {{ candidate.title }}
+                    <small>
+                      {{ candidate.doi || candidate.arxiv_id || candidate.resolution_source }}
+                    </small>
+                  </span>
+                  <button
+                    type="button"
+                    :disabled="loading"
+                    @click="emit('resolve-task', task, index)"
+                  >
+                    Choose
+                  </button>
+                </div>
+              </div>
             </td>
             <td>{{ task.locator_status }}</td>
             <td>{{ task.pdf_status }}</td>

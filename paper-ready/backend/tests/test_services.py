@@ -2,6 +2,7 @@
 
 from paper_ready_backend.models import AppSettings, ReportRequest, TaskRetryRequest
 from paper_ready_backend.modules import downloader
+from paper_ready_backend.modules import locator
 from paper_ready_backend.modules.parser import parse_text_sections
 from paper_ready_backend.modules.zotero import build_zotero_payload, export_to_zotero
 from paper_ready_backend.services import (
@@ -10,8 +11,10 @@ from paper_ready_backend.services import (
     detect_input_type,
     generate_report,
     process_task,
+    resolve_task,
     retry_task,
 )
+from paper_ready_backend.models import PaperRecord, TaskResolveRequest
 
 
 def test_detect_input_type_handles_supported_inputs() -> None:
@@ -34,6 +37,35 @@ def test_process_arxiv_task_reaches_report_ready(tmp_path, monkeypatch) -> None:
     assert processed.pdf.local_path
     assert processed.parser_status == "Parsed"
     assert processed.evaluation is not None
+
+
+def test_locator_uses_deterministic_doi_metadata(monkeypatch) -> None:
+    """DOI tasks use deterministic metadata before demo fallback."""
+    monkeypatch.setattr(
+        locator,
+        "lookup_doi",
+        lambda doi: PaperRecord(
+            title="Resolved DOI Paper",
+            doi=doi,
+            source_confidence=0.93,
+            resolution_source="crossref",
+        ),
+    )
+    task = process_task(create_tasks(["10.1145/1234567"])[0], AppSettings())
+    assert task.paper.title == "Resolved DOI Paper"
+    assert task.paper.resolution_source == "crossref"
+
+
+def test_disambiguation_candidate_can_be_resolved(monkeypatch) -> None:
+    """Ambiguous locating results pause and can be resolved by candidate index."""
+    monkeypatch.setattr(locator, "search_title", lambda _title: [])
+    task = process_task(create_tasks(["Paper One or Paper Two"])[0], AppSettings())
+    assert task.status == "Needs disambiguation"
+    assert len(task.paper.candidate_records) == 2
+    resolved = resolve_task(task, TaskResolveRequest(candidate_index=1))
+    assert resolved.status == "Located"
+    assert resolved.paper.title == "Paper Two"
+    assert resolved.pdf is None
 
 
 def test_pipeline_exposes_decoupled_modules() -> None:

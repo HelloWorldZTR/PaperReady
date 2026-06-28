@@ -91,6 +91,23 @@ date as the handoff source for future implementation.
   access.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Metadata Lookup And Disambiguation
+
+- [x] Add deterministic metadata lookup helpers for Crossref DOI/title search
+  and arXiv Atom metadata.
+- [x] Let locator prefer deterministic arXiv/DOI metadata before LLM/demo
+  fallback.
+- [x] Pause title conflicts as `Needs disambiguation` with candidate records.
+- [x] Add `POST /tasks/{task_id}/resolve` for candidate or edited metadata
+  resolution.
+- [x] Clear downstream PDF/parser/evaluation/report outputs when identity is
+  manually resolved.
+- [x] Show locator candidates in the task-list UI with per-candidate Choose
+  actions.
+- [x] Add tests for deterministic DOI metadata, candidate pause, resolve API,
+  and disambiguation UI data flow.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -135,6 +152,7 @@ date as the handoff source for future implementation.
 - `fb7f0dc` - Add task retry and settings controls.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
 - `68df58e` - Add background worker and PDF cache.
+- Pending - Metadata lookup and disambiguation.
 
 ## Verification
 
