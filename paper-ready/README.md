@@ -4,6 +4,13 @@ PaperReady is a local-first Tauri desktop app for batch processing research
 papers. The current implementation is an MVP skeleton with a Vue task-list UI
 and a FastAPI backend backed by SQLite.
 
+## Architecture
+
+- `src/`: Vue desktop UI with Home, Tasks, and Settings subpages.
+- `backend/paper_ready_backend/modules/`: decoupled paper workflow modules.
+- `backend/paper_ready_backend/pipeline.py`: ordered pipeline subsystem.
+- `src-tauri/`: Tauri shell that owns the desktop window lifecycle.
+
 ## Prerequisites
 
 - Python 3.11+

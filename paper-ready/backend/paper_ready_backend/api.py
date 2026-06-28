@@ -18,6 +18,7 @@ from .models import (
 )
 from .services import (
     create_tasks,
+    describe_pipeline,
     generate_report,
     mark_exported,
     override_recommendation,
@@ -52,6 +53,12 @@ def health() -> dict[str, str]:
 def storage_debug() -> dict:
     """Return a compact storage diagnostic snapshot."""
     return database.export_payload()
+
+
+@app.get("/pipeline", response_model=list[dict[str, str]])
+def get_pipeline() -> list[dict[str, str]]:
+    """Return the ordered backend processing pipeline."""
+    return describe_pipeline()
 
 
 @app.get("/settings", response_model=AppSettings)

@@ -3,6 +3,7 @@
 from paper_ready_backend.models import AppSettings, ReportRequest
 from paper_ready_backend.services import (
     create_tasks,
+    describe_pipeline,
     detect_input_type,
     generate_report,
     process_task,
@@ -28,6 +29,12 @@ def test_process_arxiv_task_reaches_report_ready() -> None:
     assert processed.evaluation is not None
 
 
+def test_pipeline_exposes_decoupled_modules() -> None:
+    """The backend publishes the ordered pipeline subsystem."""
+    keys = [step["key"] for step in describe_pipeline()]
+    assert keys == ["locator", "downloader", "parser", "evaluator"]
+
+
 def test_budget_pause_prevents_report_generation() -> None:
     """Report generation pauses before exceeding configured budget."""
     task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
@@ -38,4 +45,3 @@ def test_budget_pause_prevents_report_generation() -> None:
     )
     assert paused.status == "Budget paused"
     assert paused.report is None
-

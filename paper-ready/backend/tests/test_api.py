@@ -17,6 +17,10 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         assert processed.status_code == 200
         assert processed.json()["status"] == "Ready for report"
 
+        pipeline = client.get("/pipeline")
+        assert pipeline.status_code == 200
+        assert pipeline.json()[0]["key"] == "locator"
+
         listed = client.get("/tasks")
         assert listed.status_code == 200
         assert listed.json()[0]["task_id"] == task_id

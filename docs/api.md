@@ -18,6 +18,31 @@ Returns backend readiness.
 Returns the active SQLite path, task count, and current settings. This is for
 local diagnostics only.
 
+## Pipeline
+
+### `GET /pipeline`
+
+Returns the ordered processing pipeline currently used by task processing.
+
+Current response shape:
+
+```json
+[
+  {
+    "key": "locator",
+    "label": "Paper Locator",
+    "description": "Resolve raw input into paper metadata."
+  }
+]
+```
+
+The default pipeline is assembled from decoupled modules:
+
+- `locator`
+- `downloader`
+- `parser`
+- `evaluator`
+
 ## Settings
 
 ### `GET /settings`
@@ -124,4 +149,3 @@ Request:
 ```
 
 Response: updated exported tasks.
-

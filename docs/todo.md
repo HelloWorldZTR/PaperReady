@@ -24,6 +24,24 @@ date as the handoff source for future implementation.
 - [x] Add pytest coverage for important backend functionality.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Pipeline And macOS Navigation
+
+- [x] Split workflow implementation into decoupled backend modules:
+  locator, downloader, parser, evaluator, summarizer, and Zotero bridge.
+- [x] Add a `PaperPipeline` subsystem that composes ordered idempotent steps.
+- [x] Keep `services.py` as a compatibility facade over the pipeline/modules.
+- [x] Expose the backend pipeline shape through `GET /pipeline`.
+- [x] Split the frontend into home, task list, and settings subpages.
+- [x] Keep the Home page focused on one batch input box and one PDF drag box.
+- [x] Move task list and settings controls to their own pages.
+- [x] Add a macOS-style custom title bar and sidebar navigation.
+- [x] Update Tauri window sizing and disable native decorations for the custom
+  title bar.
+- [x] Move frontend API helpers, UI strings, and global styles into separate
+  files.
+- [x] Add tests for the published pipeline shape.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -64,6 +82,7 @@ date as the handoff source for future implementation.
 ## Milestone Commits
 
 - `072e323` - Implement local-first MVP skeleton.
+- Pending - Pipeline and macOS navigation.
 
 ## Verification
 
