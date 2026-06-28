@@ -200,14 +200,18 @@ async function retryTask(task, step) {
   }
 }
 
-/** Resolve a task that is paused for candidate disambiguation. */
-async function resolveTask(task, candidateIndex) {
+/** Resolve a task with a candidate selection or user-edited metadata. */
+async function resolveTask(task, resolution) {
   loading.value = true;
   errorMessage.value = "";
   try {
+    const body =
+      typeof resolution === "number"
+        ? { candidate_index: resolution }
+        : { paper: resolution };
     await api(`/tasks/${task.task_id}/resolve`, {
       method: "POST",
-      body: JSON.stringify({ candidate_index: candidateIndex }),
+      body: JSON.stringify(body),
     });
     await refreshTasks();
   } catch (error) {

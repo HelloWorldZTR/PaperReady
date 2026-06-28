@@ -154,6 +154,18 @@ date as the handoff source for future implementation.
 - [x] Add API coverage for YOLO worker report generation.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Metadata Editing UI
+
+- [x] Add an inline task-row metadata editor for title, authors, year, venue,
+  DOI, arXiv ID, URLs, and abstract.
+- [x] Reuse `POST /tasks/{task_id}/resolve` with an edited `paper` payload
+  instead of adding a new backend route.
+- [x] Keep edited metadata resolution clearing downstream PDF, parser,
+  evaluation, and report outputs before rerun.
+- [x] Document metadata editing in `paper-ready/README.md`.
+- [x] Add backend coverage for edited metadata resolution.
+- [x] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -202,6 +214,7 @@ date as the handoff source for future implementation.
 - `0552bfe` - Add URL PDF discovery and export preview.
 - `8259ee1` - Add Zotero connector confirmation flow.
 - `7f61144` - Add YOLO worker report generation.
+- `TBD` - Add metadata editing UI.
 
 ## Verification
 

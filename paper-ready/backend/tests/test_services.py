@@ -69,6 +69,36 @@ def test_disambiguation_candidate_can_be_resolved(monkeypatch) -> None:
     assert resolved.pdf is None
 
 
+def test_edited_metadata_resolution_clears_downstream_outputs(tmp_path, monkeypatch) -> None:
+    """User-edited paper metadata resets downstream processing state."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
+    task = generate_report(task, AppSettings(), ReportRequest(report_type="Quick Brief"))
+    resolved = resolve_task(
+        task,
+        TaskResolveRequest(
+            paper=PaperRecord(
+                title="User Edited Paper",
+                authors=["Ada Lovelace"],
+                year=2026,
+                source_confidence=1,
+                resolution_source="user_edit",
+            )
+        ),
+    )
+    assert resolved.paper.title == "User Edited Paper"
+    assert resolved.status == "Located"
+    assert resolved.pdf is None
+    assert resolved.parsed is None
+    assert resolved.evaluation is None
+    assert resolved.report is None
+
+
 def test_url_pdf_input_downloads_free_pdf(tmp_path, monkeypatch) -> None:
     """Direct PDF URLs are treated as legal free PDF sources."""
     monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))

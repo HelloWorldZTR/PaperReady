@@ -44,6 +44,8 @@ function choices(task) {
       modelId: props.settings.summarization_model,
       reportType: task.evaluation?.suggested_report_type || props.settings.default_report_type,
       retryStep: "evaluator",
+      editingMetadata: false,
+      metadataDraft: null,
     };
   }
   return rowChoices[task.task_id];
@@ -57,6 +59,54 @@ function canGenerate(task) {
 /** Return candidate records for a disambiguation task. */
 function candidates(task) {
   return task.paper?.candidate_records || [];
+}
+
+/** Open the inline metadata editor for one task row. */
+function startEditMetadata(task) {
+  const paper = task.paper || {};
+  choices(task).metadataDraft = {
+    title: paper.title || task.raw_input,
+    authors: (paper.authors || []).join(", "),
+    year: paper.year || "",
+    venue: paper.venue || "",
+    doi: paper.doi || "",
+    arxiv_id: paper.arxiv_id || "",
+    urls: (paper.urls || []).join("\n"),
+    abstract: paper.abstract || "",
+  };
+  choices(task).editingMetadata = true;
+}
+
+/** Convert the row editor fields into a PaperRecord-shaped payload. */
+function buildEditedPaper(task) {
+  const draft = choices(task).metadataDraft || {};
+  const year = Number.parseInt(draft.year, 10);
+  return {
+    paper_id: task.paper?.paper_id,
+    title: (draft.title || task.raw_input).trim(),
+    authors: (draft.authors || "")
+      .split(",")
+      .map((author) => author.trim())
+      .filter(Boolean),
+    year: Number.isNaN(year) ? null : year,
+    venue: draft.venue || null,
+    doi: draft.doi || null,
+    arxiv_id: draft.arxiv_id || null,
+    urls: (draft.urls || "")
+      .split(/\n|,/)
+      .map((url) => url.trim())
+      .filter(Boolean),
+    abstract: draft.abstract || null,
+    source_confidence: 1,
+    resolution_source: "user_edit",
+    candidate_records: [],
+  };
+}
+
+/** Save user-edited metadata through the task resolution API. */
+function saveMetadata(task) {
+  emit("resolve-task", task, buildEditedPaper(task));
+  choices(task).editingMetadata = false;
 }
 </script>
 
@@ -182,6 +232,63 @@ function candidates(task) {
             <td class="paper-cell">
               <strong>{{ task.paper?.title || task.raw_input }}</strong>
               <small>{{ task.input_type }} · {{ task.status }}</small>
+              <button
+                type="button"
+                class="link-button"
+                :disabled="loading"
+                @click="startEditMetadata(task)"
+              >
+                Edit metadata
+              </button>
+              <div v-if="choices(task).editingMetadata" class="metadata-editor">
+                <label>
+                  Title
+                  <input v-model="choices(task).metadataDraft.title" type="text" />
+                </label>
+                <label>
+                  Authors
+                  <input
+                    v-model="choices(task).metadataDraft.authors"
+                    type="text"
+                    placeholder="Comma-separated names"
+                  />
+                </label>
+                <label>
+                  Year
+                  <input v-model="choices(task).metadataDraft.year" type="number" />
+                </label>
+                <label>
+                  Venue
+                  <input v-model="choices(task).metadataDraft.venue" type="text" />
+                </label>
+                <label>
+                  DOI
+                  <input v-model="choices(task).metadataDraft.doi" type="text" />
+                </label>
+                <label>
+                  arXiv ID
+                  <input v-model="choices(task).metadataDraft.arxiv_id" type="text" />
+                </label>
+                <label class="wide">
+                  URLs
+                  <textarea v-model="choices(task).metadataDraft.urls" rows="2"></textarea>
+                </label>
+                <label class="wide">
+                  Abstract
+                  <textarea v-model="choices(task).metadataDraft.abstract" rows="3"></textarea>
+                </label>
+                <div class="metadata-actions">
+                  <button type="button" class="primary" @click="saveMetadata(task)">
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    @click="choices(task).editingMetadata = false"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
               <div v-if="candidates(task).length" class="candidate-list">
                 <div
                   v-for="(candidate, index) in candidates(task)"
