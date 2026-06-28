@@ -40,7 +40,7 @@ date as the handoff source for future implementation.
 - [x] Move frontend API helpers, UI strings, and global styles into separate
   files.
 - [x] Add tests for the published pipeline shape.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -82,7 +82,7 @@ date as the handoff source for future implementation.
 ## Milestone Commits
 
 - `072e323` - Implement local-first MVP skeleton.
-- Pending - Pipeline and macOS navigation.
+- `bec90db` - Refactor pipeline and macOS navigation.
 
 ## Verification
 
