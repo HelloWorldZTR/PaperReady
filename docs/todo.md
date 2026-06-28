@@ -54,7 +54,7 @@ date as the handoff source for future implementation.
   default, budget overflow behavior, language placeholder, report types JSON,
   and prompt templates JSON.
 - [x] Update `docs/api.md` for pipeline modes, retry, and expanded settings.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -97,7 +97,7 @@ date as the handoff source for future implementation.
 
 - `072e323` - Implement local-first MVP skeleton.
 - `bec90db` - Refactor pipeline and macOS navigation.
-- Pending - Task controls and settings coverage.
+- `fb7f0dc` - Add task retry and settings controls.
 
 ## Verification
 
