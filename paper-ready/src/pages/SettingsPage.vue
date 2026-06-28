@@ -178,6 +178,15 @@ function updateJsonField(key, value) {
           <option value="zh">Chinese placeholder</option>
         </select>
       </label>
+      <label>
+        Zotero bridge URL
+        <input
+          :value="settings.zotero_bridge_url"
+          type="text"
+          placeholder="Optional local connector bridge endpoint"
+          @input="updateField('zotero_bridge_url', $event.target.value || null)"
+        />
+      </label>
       <label class="checkbox-row">
         <input
           :checked="settings.yolo_default"

@@ -9,7 +9,7 @@ from .modules.input_classifier import create_tasks, detect_input_type
 from .modules.locator import locate_paper
 from .modules.parser import parse_pdf
 from .modules.summarizer import estimate_report_cost, generate_report
-from .modules.zotero import mark_exported
+from .modules.zotero import export_to_zotero, mark_exported
 from .pipeline import default_pipeline
 
 

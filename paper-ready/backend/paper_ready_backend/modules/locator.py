@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from ..models import PaperRecord, PaperTask
+from ..llm_client import complete_json
+from ..models import AppSettings, PaperRecord, PaperTask
+from ..prompts import LOCATOR_PROMPT
 from .input_classifier import ARXIV_RE, DOI_RE
 
 
-def locate_paper(task: PaperTask) -> PaperTask:
+def locate_paper(task: PaperTask, settings: AppSettings | None = None) -> PaperTask:
     """Resolve one task into demo metadata or a disambiguation state."""
     task.status = "Locating"
     task.locator_status = "Locating"
@@ -14,7 +16,10 @@ def locate_paper(task: PaperTask) -> PaperTask:
     arxiv_match = ARXIV_RE.search(raw)
     doi_match = DOI_RE.search(raw)
 
-    if arxiv_match:
+    llm_paper = _locate_with_llm(raw, settings) if settings else None
+    if llm_paper:
+        paper = llm_paper
+    elif arxiv_match:
         arxiv_id = arxiv_match.group(1)
         paper = PaperRecord(
             title=f"arXiv paper {arxiv_id}",
@@ -58,3 +63,29 @@ def locate_paper(task: PaperTask) -> PaperTask:
     task.next_action = "Attach or download PDF"
     return task
 
+
+def _locate_with_llm(raw_input: str, settings: AppSettings | None) -> PaperRecord | None:
+    """Resolve paper metadata with the configured LLM when credentials exist."""
+    if not settings:
+        return None
+    payload = complete_json(
+        settings,
+        settings.locating_model,
+        LOCATOR_PROMPT,
+        f"Input: {raw_input}",
+    )
+    if not payload or not payload.get("title"):
+        return None
+    return PaperRecord(
+        title=str(payload["title"]),
+        authors=list(payload.get("authors") or []),
+        year=payload.get("year"),
+        venue=payload.get("venue"),
+        doi=payload.get("doi"),
+        arxiv_id=payload.get("arxiv_id"),
+        urls=list(payload.get("urls") or []),
+        abstract=payload.get("abstract"),
+        source_confidence=float(payload.get("source_confidence") or 0.0),
+        resolution_source="llm_locator",
+        candidate_records=list(payload.get("candidate_records") or []),
+    )

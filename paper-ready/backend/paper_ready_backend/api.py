@@ -21,7 +21,7 @@ from .services import (
     create_tasks,
     describe_pipeline,
     generate_report,
-    mark_exported,
+    export_to_zotero,
     override_recommendation,
     process_task,
     retry_task,
@@ -142,7 +142,8 @@ def post_report(task_id: str, request: ReportRequest) -> PaperTask:
 def post_export(request: ExportRequest) -> list[PaperTask]:
     """Record a safe Zotero export operation for selected tasks."""
     exported = []
+    settings = database.get_settings()
     for task_id in request.task_ids:
-        task = mark_exported(_load_task(task_id), request.category)
+        task = export_to_zotero(_load_task(task_id), request.category, settings)
         exported.append(database.save_task(task))
     return exported

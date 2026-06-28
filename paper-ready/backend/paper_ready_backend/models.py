@@ -151,6 +151,7 @@ class AppSettings(BaseModel):
     yolo_default: bool = False
     budget_overflow_behavior: str = "pause"
     language_preference: str = "en"
+    zotero_bridge_url: str | None = None
     report_types: dict[str, list[str]] = Field(
         default_factory=lambda: {
             "Quick Brief": ["summary", "main_contribution", "relevance"],

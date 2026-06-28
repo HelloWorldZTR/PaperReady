@@ -87,7 +87,7 @@ class PaperPipeline:
 
 def _run_locator(task: PaperTask, _: AppSettings) -> PaperTask:
     """Run the locator module with the pipeline runner signature."""
-    return locate_paper(task)
+    return locate_paper(task, _)
 
 
 def _run_downloader(task: PaperTask, _: AppSettings) -> PaperTask:

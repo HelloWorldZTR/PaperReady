@@ -31,6 +31,7 @@ const settings = ref({
   yolo_default: false,
   budget_overflow_behavior: "pause",
   language_preference: "en",
+  zotero_bridge_url: null,
   report_types: {},
   prompt_templates: {},
 });

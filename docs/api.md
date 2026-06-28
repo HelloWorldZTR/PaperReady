@@ -75,8 +75,13 @@ Replaces persisted settings. Important fields include:
 - `yolo_default`
 - `budget_overflow_behavior`
 - `language_preference`
+- `zotero_bridge_url`
 - `report_types`
 - `prompt_templates`
+
+LLM-backed locator, evaluator, and summarizer calls use `api_key`,
+`llm_api_base_url`, and the relevant stage model. If no API key is configured
+or the provider call fails, modules fall back to deterministic local behavior.
 
 ## Tasks
 
@@ -166,6 +171,10 @@ Both fields are optional. Defaults come from settings.
 
 Records safe Zotero export intent for selected tasks. The current MVP skeleton
 does not write to Zotero SQLite, delete items, or merge duplicates.
+
+If `zotero_bridge_url` is configured, the backend sends a connector-style JSON
+payload to that URL. Otherwise it prepares the payload locally and records the
+task as exported.
 
 Request:
 

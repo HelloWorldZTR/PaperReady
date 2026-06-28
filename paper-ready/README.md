@@ -7,6 +7,7 @@ and a FastAPI backend backed by SQLite.
 ## Architecture
 
 - `src/`: Vue desktop UI with Home, Tasks, and Settings subpages.
+- `backend/paper_ready_backend/llm_client.py`: OpenAI-compatible LLM boundary.
 - `backend/paper_ready_backend/modules/`: decoupled paper workflow modules.
 - `backend/paper_ready_backend/pipeline.py`: ordered pipeline subsystem.
 - `src-tauri/`: Tauri shell that owns the desktop window lifecycle.
@@ -86,6 +87,8 @@ Run backend tests from the repository root:
 PYTHONPATH=paper-ready/backend pytest paper-ready/backend/tests
 ```
 
-The backend currently implements demo-grade deterministic workflow steps. LLM
-paper locating, richer PDF parsing, and real Zotero bridge calls are intentionally
-behind service boundaries for the next milestones.
+The backend can run without provider credentials by using deterministic fallback
+steps. Configure `api_key`, `llm_api_base_url`, and per-stage models in Settings
+to enable OpenAI-compatible locator, evaluator, and summarizer calls. Local PDF
+text extraction uses `pypdf`; Zotero export prepares a safe connector-style
+payload and can send it to an optional `zotero_bridge_url`.

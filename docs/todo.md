@@ -56,6 +56,25 @@ date as the handoff source for future implementation.
 - [x] Update `docs/api.md` for pipeline modes, retry, and expanded settings.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: LLM/PDF/Zotero Service Boundaries
+
+- [x] Add an OpenAI-compatible LLM client boundary using settings for API key,
+  API base URL, and per-stage models.
+- [x] Wire locator, evaluator, and summarizer modules through the LLM boundary
+  with deterministic fallback when no key is configured or provider calls fail.
+- [x] Move prompt text into module-level prompt variables.
+- [x] Add token estimation for report budget checks using actual report input
+  text plus report-type floor estimates.
+- [x] Add `pypdf`-based local PDF text extraction for user-provided PDFs.
+- [x] Add semantic section extraction from PDF text for abstract, introduction,
+  method, experiments/evaluation, conclusion, and references.
+- [x] Build safe Zotero connector-style export payloads with optional PDF
+  attachments and generated report notes.
+- [x] Add optional `zotero_bridge_url` setting for HTTP bridge export without
+  direct SQLite writes.
+- [x] Add tests for semantic section extraction and Zotero export payloads.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -66,7 +85,7 @@ date as the handoff source for future implementation.
 - [x] Keep user-blocked states out of automatic retries.
 - [x] Record failure reasons and timestamps on every step.
 - [x] Keep prompt templates in module-level variables outside functions.
-- [ ] Add OpenAI-compatible client integration behind a service boundary.
+- [x] Add OpenAI-compatible client integration behind a service boundary.
 - [ ] Add per-stage concurrency settings before enabling background workers.
 
 ## Frontend Tasks
@@ -98,6 +117,7 @@ date as the handoff source for future implementation.
 - `072e323` - Implement local-first MVP skeleton.
 - `bec90db` - Refactor pipeline and macOS navigation.
 - `fb7f0dc` - Add task retry and settings controls.
+- Pending - LLM/PDF/Zotero service boundaries.
 
 ## Verification
 
