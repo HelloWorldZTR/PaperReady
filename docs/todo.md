@@ -227,7 +227,7 @@ date as the handoff source for future implementation.
 - `8259ee1` - Add Zotero connector confirmation flow.
 - `7f61144` - Add YOLO worker report generation.
 - `33e7701` - Add metadata editing UI.
-- `TBD` - Add per-task YOLO controls.
+- `f53850e` - Add per-task YOLO controls.
 
 ## Verification
 
