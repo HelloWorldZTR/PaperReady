@@ -201,7 +201,7 @@ date as the handoff source for future implementation.
 - `705cb9d` - Add metadata lookup and disambiguation.
 - `0552bfe` - Add URL PDF discovery and export preview.
 - `8259ee1` - Add Zotero connector confirmation flow.
-- `TBD` - Add YOLO worker report generation.
+- `7f61144` - Add YOLO worker report generation.
 
 ## Verification
 
