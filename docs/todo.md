@@ -123,7 +123,7 @@ date as the handoff source for future implementation.
   cancel, and confirm export controls.
 - [x] Add tests for direct PDF URLs, discovered PDF URLs, and export preview
   toggles.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -170,7 +170,7 @@ date as the handoff source for future implementation.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
 - `68df58e` - Add background worker and PDF cache.
 - `705cb9d` - Add metadata lookup and disambiguation.
-- Pending - URL PDF discovery and Zotero preview.
+- `0552bfe` - Add URL PDF discovery and export preview.
 
 ## Verification
 
