@@ -31,7 +31,8 @@ Current response shape:
   {
     "key": "locator",
     "label": "Paper Locator",
-    "description": "Resolve raw input into paper metadata."
+    "description": "Resolve raw input into paper metadata.",
+    "mode": "automatic"
   }
 ]
 ```
@@ -42,6 +43,11 @@ The default pipeline is assembled from decoupled modules:
 - `downloader`
 - `parser`
 - `evaluator`
+- `summarizer`
+- `zotero`
+
+`locator` through `evaluator` are automatic resumable steps. `summarizer` and
+`zotero` are manual pipeline modules triggered by explicit user action.
 
 ## Settings
 
@@ -55,11 +61,20 @@ Replaces persisted settings. Important fields include:
 
 - `research_interests`
 - `batch_budget`
+- `daily_budget`
+- `monthly_budget`
 - `llm_api_base_url`
+- `api_key`
 - `locating_model`
 - `evaluation_model`
 - `summarization_model`
+- `locating_concurrency`
+- `evaluation_concurrency`
+- `summarization_concurrency`
 - `default_report_type`
+- `yolo_default`
+- `budget_overflow_behavior`
+- `language_preference`
 - `report_types`
 - `prompt_templates`
 
@@ -91,6 +106,21 @@ Advances one task through safe automatic workflow steps:
 4. evaluate reading value
 
 User-blocked and budget-paused tasks are not forced forward.
+
+### `POST /tasks/{task_id}/retry`
+
+Clears outputs from a selected pipeline step and immediately reruns automatic
+processing. This is used for recoverable failures and manual retries.
+
+Request:
+
+```json
+{ "step": "downloader" }
+```
+
+Allowed steps are `locator`, `downloader`, `parser`, `evaluator`, and
+`summarizer`. If `step` is omitted, the backend infers a retry point from the
+current task state.
 
 ### `POST /tasks/process-all`
 

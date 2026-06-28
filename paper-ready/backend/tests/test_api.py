@@ -20,6 +20,11 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         pipeline = client.get("/pipeline")
         assert pipeline.status_code == 200
         assert pipeline.json()[0]["key"] == "locator"
+        assert pipeline.json()[-1]["key"] == "zotero"
+
+        retried = client.post(f"/tasks/{task_id}/retry", json={"step": "downloader"})
+        assert retried.status_code == 200
+        assert retried.json()["pdf_status"] == "PDF ready"
 
         listed = client.get("/tasks")
         assert listed.status_code == 200

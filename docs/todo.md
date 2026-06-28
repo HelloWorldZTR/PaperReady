@@ -42,6 +42,20 @@ date as the handoff source for future implementation.
 - [x] Add tests for the published pipeline shape.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Task Controls And Settings Coverage
+
+- [x] Expand pipeline description to include automatic modules and manual
+  summarizer/Zotero modules.
+- [x] Add `POST /tasks/{task_id}/retry` to reset from a selected pipeline step.
+- [x] Add backend tests for retry behavior and full pipeline descriptors.
+- [x] Add per-row retry controls to the task list page.
+- [x] Add per-row report type and report model controls.
+- [x] Expand settings with API key, daily/monthly budgets, concurrency, YOLO
+  default, budget overflow behavior, language placeholder, report types JSON,
+  and prompt templates JSON.
+- [x] Update `docs/api.md` for pipeline modes, retry, and expanded settings.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -61,9 +75,9 @@ date as the handoff source for future implementation.
 - [x] Add batch input controls for text lines and local PDF paths.
 - [x] Render task rows with title/input, locator, PDF, parser, evaluation,
   report, cost, and next action columns.
-- [ ] Add row actions for retry, override recommendation, report type/model
+- [x] Add row actions for retry, override recommendation, report type/model
   selection, report generation, and export selection.
-- [ ] Add settings controls for research interests, budget, API base URL, API
+- [x] Add settings controls for research interests, budget, API base URL, API
   key, stage models, concurrency, report types, prompt templates, YOLO default,
   budget overflow behavior, and language placeholder.
 - [x] Surface loading, error, empty, and metadata-only states clearly.
@@ -83,6 +97,7 @@ date as the handoff source for future implementation.
 
 - `072e323` - Implement local-first MVP skeleton.
 - `bec90db` - Refactor pipeline and macOS navigation.
+- Pending - Task controls and settings coverage.
 
 ## Verification
 

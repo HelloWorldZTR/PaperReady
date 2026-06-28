@@ -26,6 +26,13 @@ const settings = ref({
   evaluation_concurrency: 2,
   summarization_concurrency: 1,
   default_report_type: "Quick Brief",
+  daily_budget: null,
+  monthly_budget: null,
+  yolo_default: false,
+  budget_overflow_behavior: "pause",
+  language_preference: "en",
+  report_types: {},
+  prompt_templates: {},
 });
 
 /** Call the local backend with the current resolved URL. */
@@ -102,16 +109,36 @@ async function processAll() {
 }
 
 /** Generate the selected task's configured report. */
-async function generateReport(task) {
+async function generateReport(task, selection = {}) {
   loading.value = true;
   errorMessage.value = "";
   try {
     await api(`/tasks/${task.task_id}/report`, {
       method: "POST",
       body: JSON.stringify({
-        report_type: task.evaluation?.suggested_report_type || settings.value.default_report_type,
-        model_id: settings.value.summarization_model,
+        report_type:
+          selection.reportType ||
+          task.evaluation?.suggested_report_type ||
+          settings.value.default_report_type,
+        model_id: selection.modelId || settings.value.summarization_model,
       }),
+    });
+    await refreshTasks();
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Reset a task from a selected pipeline stage and run automatic processing. */
+async function retryTask(task, step) {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    await api(`/tasks/${task.task_id}/retry`, {
+      method: "POST",
+      body: JSON.stringify({ step }),
     });
     await refreshTasks();
   } catch (error) {
@@ -215,6 +242,8 @@ onMounted(initialize);
         <TasksPage
           v-else-if="activePage === 'tasks'"
           :loading="loading"
+          :pipeline="pipeline"
+          :settings="settings"
           :selected-task-ids="selectedTaskIds"
           :tasks="tasks"
           @export-selected="exportSelected"
@@ -222,6 +251,7 @@ onMounted(initialize);
           @override-recommendation="overrideRecommendation"
           @process-all="processAll"
           @refresh="refreshTasks"
+          @retry-task="retryTask"
           @toggle-selection="toggleSelection"
         />
         <SettingsPage

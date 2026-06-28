@@ -279,7 +279,8 @@ textarea {
 
 .actions,
 .mini-actions,
-.next-cell {
+.next-cell,
+.retry-controls {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -326,7 +327,8 @@ th {
 
 .paper-cell strong,
 .paper-cell small,
-.next-cell span {
+.next-cell span,
+.report-cell span {
   display: block;
 }
 
@@ -364,6 +366,24 @@ th {
   flex-direction: column;
 }
 
+.report-cell {
+  min-width: 190px;
+}
+
+.report-cell input,
+.report-cell select,
+.retry-controls select {
+  font-size: 12px;
+  margin-top: 6px;
+  min-height: 28px;
+  padding: 5px 7px;
+}
+
+.retry-controls {
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
 .settings-grid {
   display: grid;
   gap: 14px;
@@ -386,6 +406,16 @@ th {
 
 .settings-grid .wide {
   grid-column: 1 / -1;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.checkbox-row input {
+  width: auto;
 }
 
 @media (max-width: 940px) {

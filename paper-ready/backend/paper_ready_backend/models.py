@@ -140,6 +140,7 @@ class AppSettings(BaseModel):
     daily_budget: float | None = None
     monthly_budget: float | None = None
     llm_api_base_url: str = "https://api.openai.com/v1"
+    api_key: str | None = None
     locating_model: str = "gpt-4.1-mini"
     evaluation_model: str = "gpt-4.1-mini"
     summarization_model: str = "gpt-4.1"
@@ -179,9 +180,12 @@ class ReportRequest(BaseModel):
     model_id: str | None = None
 
 
+class TaskRetryRequest(BaseModel):
+    step: Literal["locator", "downloader", "parser", "evaluator", "summarizer"] | None = None
+
+
 class ExportRequest(BaseModel):
     task_ids: list[str]
     include_pdf: bool = True
     include_notes: bool = True
     category: ValueRecommendation | None = None
-

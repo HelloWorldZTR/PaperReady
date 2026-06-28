@@ -15,6 +15,7 @@ from .models import (
     RecommendationOverride,
     ReportRequest,
     TaskCreateRequest,
+    TaskRetryRequest,
 )
 from .services import (
     create_tasks,
@@ -23,6 +24,7 @@ from .services import (
     mark_exported,
     override_recommendation,
     process_task,
+    retry_task,
 )
 
 
@@ -55,8 +57,8 @@ def storage_debug() -> dict:
     return database.export_payload()
 
 
-@app.get("/pipeline", response_model=list[dict[str, str]])
-def get_pipeline() -> list[dict[str, str]]:
+@app.get("/pipeline", response_model=list[dict])
+def get_pipeline() -> list[dict[str, str | bool]]:
     """Return the ordered backend processing pipeline."""
     return describe_pipeline()
 
@@ -100,6 +102,13 @@ def _load_task(task_id: str) -> PaperTask:
 def post_process_task(task_id: str) -> PaperTask:
     """Advance one task through automatic workflow steps."""
     task = process_task(_load_task(task_id), database.get_settings())
+    return database.save_task(task)
+
+
+@app.post("/tasks/{task_id}/retry", response_model=PaperTask)
+def post_retry_task(task_id: str, request: TaskRetryRequest) -> PaperTask:
+    """Reset one task from a pipeline step and run automatic processing."""
+    task = retry_task(_load_task(task_id), request, database.get_settings())
     return database.save_task(task)
 
 

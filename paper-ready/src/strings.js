@@ -19,10 +19,10 @@ export const STRINGS = {
     processAll: "Process all",
     export: "Export selected",
     generate: "Report",
+    retry: "Retry",
   },
   settings: {
     title: "Settings",
     save: "Save settings",
   },
 };
-
