@@ -248,7 +248,7 @@ date as the handoff source for future implementation.
 - `33e7701` - Add metadata editing UI.
 - `f53850e` - Add per-task YOLO controls.
 - `f6a65bb` - Add local PDF replacement.
-- `TBD` - Add report preview UI.
+- `e5a2665` - Add report preview UI.
 
 ## Verification
 
