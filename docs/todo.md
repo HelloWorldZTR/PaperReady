@@ -240,7 +240,7 @@ date as the handoff source for future implementation.
 - `7f61144` - Add YOLO worker report generation.
 - `33e7701` - Add metadata editing UI.
 - `f53850e` - Add per-task YOLO controls.
-- `TBD` - Add local PDF replacement.
+- `f6a65bb` - Add local PDF replacement.
 
 ## Verification
 
