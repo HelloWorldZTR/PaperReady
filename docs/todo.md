@@ -89,7 +89,7 @@ date as the handoff source for future implementation.
   is unavailable.
 - [x] Add tests for worker run-once and cached PDF paths without real network
   access.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -134,7 +134,7 @@ date as the handoff source for future implementation.
 - `bec90db` - Refactor pipeline and macOS navigation.
 - `fb7f0dc` - Add task retry and settings controls.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
-- Pending - Background worker and PDF cache.
+- `68df58e` - Add background worker and PDF cache.
 
 ## Verification
 
