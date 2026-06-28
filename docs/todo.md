@@ -1,7 +1,84 @@
-根据 [PRD_draft.md](/Users/andy/Develop/PaperReady/docs/PRD_draft.md) 中的内容，优化该项目的设计文档，放置在 [PRD.md](/Users/andy/Develop/PaperReady/docs/PRD.md) 中。首先精简项目设计，先不要做那么多的冗余操作。项目应该分为解耦的几个模块，首先是文章定位模块，输入一个文章信息，定位该文章，如果定位不了或者冲突让用户消歧义（默认有arxiv优先选择arxiv，如果有published版本我们先不管）；其次是文章下载模块，我们主要从arxiv和其他免费途径获取，如果失败则只下载metadata并在UI中体现；其次是pdf解析模块，这部分会将下载成功的pdf解析成semantic的模块；其次是文章评价模块，该部分会根据Meta中的abstract和解析出的关键模块（如intro, method conclusion等）进行评价，评价该文章是否值得精读；然后是文章总结模块，这部分会调用强大的大语言模型对整篇文章进行总结；最后是zotero交互，这部分参考官方的网页插件。
+# PaperReady Todo
 
-用户流程方面，用户可以选择pdf(s)和输入文章信息（DOI, 文章名，链接，每行一个)或者输入一个deepresearch页面（这个暂时先不实现）然后用户会被定位到一个任务列表，显示每一个文章的处理情况。如果每一步完成了会实时更新在上面，比如（文章名 | pdf ok | 解析中 | 价值? | 下一步操作）用户可以选择补充一些失败的项目和消除歧义，也可以手动指定该文章是否生成报告，用什么报告粒度（这部分可以在设置里设置，选择报告包含哪些章节，反映到prompt上）和报告用模型，当然也可以yolo让模型提供的建议报告自动生成（但是我们有开销估计，如果超预算的话会暂停处理）完成后，会生成一个导出选项，让用户可以将文章批量导入zotero保存（比如very important，brief reading，unrelated）等。整个界面类似一个下载管理器，操作起来也差不多。
+This file tracks implementation work derived from `docs/PRD.md`. Keep it up to
+date as the handoff source for future implementation.
 
-用户可以设置自己的research interest，可以设置usage防止超额，可以自定义llm api base url和不同阶段的模型，可以修改报告生成的每部分的prompt，可以自定义几种报告类型（比如详细报告，包含每一个部分；粗略报告，只包含文章内容和结果等）自定义报告类型可以选择模型。用户应当设置模型的并发处理数，防止被ban。
+## Current Milestone: Local-First MVP Skeleton
 
-实现方面，用tauri实现前后端分离，后端任务队列支持断点续运行，用openai包实现llm交互，论文匹配部分先用web search的llm做demo。
+- [x] Convert the PRD into an implementation task list.
+- [x] Create a FastAPI backend with a durable SQLite task queue.
+- [x] Add task creation from line-by-line DOI, arXiv ID, URL, title, and local
+  PDF path inputs.
+- [x] Implement demo-grade paper locating for straightforward arXiv and DOI-like
+  inputs, with `Needs disambiguation` as the safe fallback.
+- [x] Implement PDF attachment/download state handling with arXiv PDF URL
+  detection and metadata-only fallback.
+- [x] Implement a reusable parsed-paper intermediate representation.
+- [x] Implement metadata/section-based reading value evaluation.
+- [x] Implement configurable report generation with budget checks.
+- [x] Implement Zotero export as a safe bridge stub that records export intent
+  without writing to Zotero SQLite.
+- [x] Replace the starter Vue screen with a dense task-list UI.
+- [x] Document backend APIs in `docs/api.md`.
+- [x] Document run/build steps in `paper-ready/README.md`.
+- [x] Add pytest coverage for important backend functionality.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
+## Backend Tasks
+
+- [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
+  `PdfRecord`, `ParsedPaper`, `EvaluationRecord`, and `ReportRecord`.
+- [x] Store queue records and step outputs in SQLite.
+- [x] Add API routes for health, settings, task creation, task listing, task
+  processing, manual overrides, report generation, and Zotero export.
+- [x] Keep user-blocked states out of automatic retries.
+- [x] Record failure reasons and timestamps on every step.
+- [x] Keep prompt templates in module-level variables outside functions.
+- [ ] Add OpenAI-compatible client integration behind a service boundary.
+- [ ] Add per-stage concurrency settings before enabling background workers.
+
+## Frontend Tasks
+
+- [x] Centralize user-facing UI strings for future i18n.
+- [x] Add batch input controls for text lines and local PDF paths.
+- [x] Render task rows with title/input, locator, PDF, parser, evaluation,
+  report, cost, and next action columns.
+- [ ] Add row actions for retry, override recommendation, report type/model
+  selection, report generation, and export selection.
+- [ ] Add settings controls for research interests, budget, API base URL, API
+  key, stage models, concurrency, report types, prompt templates, YOLO default,
+  budget overflow behavior, and language placeholder.
+- [x] Surface loading, error, empty, and metadata-only states clearly.
+
+## Documentation And Quality
+
+- [x] Keep `docs/PRD.md` unchanged.
+- [x] Keep modified source files below 500 lines unless they are stylesheets or
+  prompt-heavy files.
+- [x] Add brief docstrings to primary Python functions.
+- [x] Add doc comments to primary Rust commands.
+- [x] Use pytest in the `generic` conda environment for backend tests.
+- [x] Update `requirements.txt` whenever Python dependencies change.
+- [ ] Commit each major milestone and record the commit hash below.
+
+## Milestone Commits
+
+- Pending.
+
+## Verification
+
+- `PYTHONPATH=paper-ready/backend conda run -n generic python -m pytest paper-ready/backend/tests`
+- `cd paper-ready && pnpm build`
+- `cd paper-ready/src-tauri && cargo check`
+
+## Scratch Notes
+
+- Default product language and implementation-facing names are English.
+- V1 should prefer arXiv when an arXiv version is available and should not try
+  to replace it with a published version.
+- PDF acquisition must never bypass paywalls. Failure should leave a usable
+  metadata-only task marked `PDF unavailable`.
+- Zotero integration must not directly write to `zotero.sqlite`, delete items,
+  or automatically merge suspected duplicates.
+- Expensive LLM calls must be preceded by cost estimates and pause before
+  exceeding the configured budget.
