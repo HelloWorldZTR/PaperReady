@@ -149,7 +149,9 @@ User-blocked and budget-paused tasks are not forced forward.
 
 The downloader stores arXiv PDFs under the local data directory when download
 succeeds. `PAPERREADY_DATA_DIR` overrides that directory; otherwise it is placed
-next to the SQLite database under `data/`.
+next to the SQLite database under `data/`. Direct PDF URLs and landing pages
+advertising `citation_pdf_url`, `application/pdf` links, or `.pdf` links are
+treated as legal free PDF sources and cached the same way.
 
 ### `POST /tasks/{task_id}/retry`
 
@@ -234,6 +236,26 @@ Request:
 Both fields are optional. Defaults come from settings.
 
 ## Zotero Export
+
+### `POST /export/zotero/preview`
+
+Returns the connector-style Zotero payloads that would be exported, without
+writing or sending them. The task-list UI uses this as the explicit confirmation
+step before saving.
+
+Request:
+
+```json
+{
+  "task_ids": ["task_abc123"],
+  "include_pdf": false,
+  "include_notes": true,
+  "category": "Brief Reading"
+}
+```
+
+Response: preview payloads with title, tags, optional attachments, and optional
+generated notes.
 
 ### `POST /export/zotero`
 

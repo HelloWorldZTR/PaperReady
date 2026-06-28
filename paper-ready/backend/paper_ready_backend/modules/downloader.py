@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -40,16 +42,33 @@ def acquire_pdf(task: PaperTask, _: AppSettings | None = None) -> PaperTask:
             title_verified=local_path.exists(),
         )
     else:
+        direct_url = _direct_pdf_url(task)
+        discovered_url = None if direct_url else _discover_pdf_url(task)
+        source_url = direct_url or discovered_url
+        if not source_url:
+            task.pdf = PdfRecord(
+                paper_id=task.paper.paper_id,
+                source_type="metadata_only",
+                status="PDF unavailable",
+                failure_reason="No legal free PDF source found by downloader.",
+            )
+            task.status = "PDF unavailable"
+            task.pdf_status = "PDF unavailable"
+            task.next_action = "Evaluate metadata"
+            return task
+        local_path = _url_pdf_path(source_url, task.paper.paper_id)
+        failure_reason = None
+        if not local_path.exists():
+            failure_reason = _download_pdf(source_url, local_path)
         task.pdf = PdfRecord(
             paper_id=task.paper.paper_id,
-            source_type="metadata_only",
-            status="PDF unavailable",
-            failure_reason="No legal free PDF source found by demo downloader.",
+            source_type="free_url" if direct_url else "discovered_free_url",
+            source_url=source_url,
+            local_path=str(local_path) if local_path.exists() else None,
+            status="PDF ready",
+            failure_reason=failure_reason,
+            title_verified=local_path.exists(),
         )
-        task.status = "PDF unavailable"
-        task.pdf_status = "PDF unavailable"
-        task.next_action = "Evaluate metadata"
-        return task
 
     task.status = "PDF ready"
     task.pdf_status = "PDF ready"
@@ -63,6 +82,57 @@ def _arxiv_pdf_path(arxiv_id: str) -> Path:
     path = get_data_dir() / "pdfs" / f"arxiv_{safe_id}.pdf"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _url_pdf_path(url: str, paper_id: str) -> Path:
+    """Return the local cache path for a discovered free PDF URL."""
+    name = Path(urlparse(url).path).name or f"{paper_id}.pdf"
+    if not name.lower().endswith(".pdf"):
+        name = f"{paper_id}.pdf"
+    path = get_data_dir() / "pdfs" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _direct_pdf_url(task: PaperTask) -> str | None:
+    """Return a direct PDF URL from metadata when one is present."""
+    for url in task.paper.urls if task.paper else []:
+        if url.lower().split("?", 1)[0].endswith(".pdf"):
+            return url
+    return None
+
+
+def _discover_pdf_url(task: PaperTask) -> str | None:
+    """Find legal free PDF URLs advertised by a paper landing page."""
+    for url in task.paper.urls if task.paper else []:
+        discovered = discover_pdf_url(url)
+        if discovered:
+            return discovered
+    return None
+
+
+def discover_pdf_url(url: str) -> str | None:
+    """Discover a PDF URL from common citation and link metadata."""
+    try:
+        response = httpx.get(url, timeout=5.0, follow_redirects=True)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "").lower()
+        if "pdf" in content_type or response.content.startswith(b"%PDF"):
+            return str(response.url)
+        html = response.text
+    except Exception:
+        return None
+    patterns = [
+        r'<meta[^>]+name=["\']citation_pdf_url["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+\.pdf[^"\']*)["\'][^>]+name=["\']citation_pdf_url["\']',
+        r'<link[^>]+type=["\']application/pdf["\'][^>]+href=["\']([^"\']+)["\']',
+        r'href=["\']([^"\']+\.pdf[^"\']*)["\']',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html, re.I)
+        if match:
+            return str(httpx.URL(url).join(match.group(1)))
+    return None
 
 
 def _download_pdf(url: str, local_path: Path) -> str | None:

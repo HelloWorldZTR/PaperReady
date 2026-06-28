@@ -16,6 +16,8 @@ const loading = ref(false);
 const errorMessage = ref("");
 const pipeline = ref([]);
 const workerStatus = ref({ running: false, last_run_count: 0, last_error: null });
+const exportPreview = ref([]);
+const exportOptions = ref({ include_pdf: true, include_notes: true, category: null });
 const settings = ref({
   research_interests: "",
   batch_budget: 3,
@@ -214,21 +216,50 @@ async function overrideRecommendation(task, value) {
   }
 }
 
-/** Record Zotero export intent for selected rows. */
-async function exportSelected() {
+/** Build a Zotero export preview before the user confirms save. */
+async function previewExportSelected(options = exportOptions.value) {
   loading.value = true;
   errorMessage.value = "";
   try {
-    tasks.value = await api("/export/zotero", {
+    exportOptions.value = { ...exportOptions.value, ...options };
+    exportPreview.value = await api("/export/zotero/preview", {
       method: "POST",
-      body: JSON.stringify({ task_ids: [...selectedTaskIds.value] }),
+      body: JSON.stringify({
+        task_ids: [...selectedTaskIds.value],
+        ...exportOptions.value,
+      }),
     });
-    selectedTaskIds.value = new Set();
   } catch (error) {
     errorMessage.value = error.message;
   } finally {
     loading.value = false;
   }
+}
+
+/** Confirm Zotero export intent for selected rows. */
+async function confirmExportSelected() {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    tasks.value = await api("/export/zotero", {
+      method: "POST",
+      body: JSON.stringify({
+        task_ids: [...selectedTaskIds.value],
+        ...exportOptions.value,
+      }),
+    });
+    selectedTaskIds.value = new Set();
+    exportPreview.value = [];
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Clear the pending Zotero preview. */
+function cancelExportPreview() {
+  exportPreview.value = [];
 }
 
 /** Toggle a task row in the export selection. */
@@ -296,7 +327,11 @@ onMounted(initialize);
           :selected-task-ids="selectedTaskIds"
           :tasks="tasks"
           :worker-status="workerStatus"
-          @export-selected="exportSelected"
+          :export-preview="exportPreview"
+          :export-options="exportOptions"
+          @cancel-export-preview="cancelExportPreview"
+          @confirm-export-selected="confirmExportSelected"
+          @preview-export-selected="previewExportSelected"
           @generate-report="generateReport"
           @override-recommendation="overrideRecommendation"
           @process-all="processAll"

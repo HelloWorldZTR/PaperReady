@@ -9,11 +9,15 @@ const props = defineProps({
   selectedTaskIds: { type: Object, required: true },
   tasks: { type: Array, required: true },
   workerStatus: { type: Object, required: true },
+  exportPreview: { type: Array, required: true },
+  exportOptions: { type: Object, required: true },
 });
 const emit = defineEmits([
-  "export-selected",
+  "cancel-export-preview",
+  "confirm-export-selected",
   "generate-report",
   "override-recommendation",
+  "preview-export-selected",
   "process-all",
   "refresh",
   "resolve-task",
@@ -86,12 +90,62 @@ function candidates(task) {
           type="button"
           class="primary"
           :disabled="loading || selectedCount === 0"
-          @click="emit('export-selected')"
+          @click="emit('preview-export-selected', exportOptions)"
         >
           {{ STRINGS.tasks.export }}
         </button>
       </div>
     </header>
+
+    <section v-if="exportPreview.length" class="export-preview">
+      <div class="export-preview-header">
+        <div>
+          <strong>Zotero export preview</strong>
+          <span>{{ exportPreview.length }} items ready for confirmation</span>
+        </div>
+        <div class="actions">
+          <label class="inline-check">
+            <input
+              :checked="exportOptions.include_pdf"
+              type="checkbox"
+              @change="
+                emit('preview-export-selected', {
+                  ...exportOptions,
+                  include_pdf: $event.target.checked,
+                })
+              "
+            />
+            PDF
+          </label>
+          <label class="inline-check">
+            <input
+              :checked="exportOptions.include_notes"
+              type="checkbox"
+              @change="
+                emit('preview-export-selected', {
+                  ...exportOptions,
+                  include_notes: $event.target.checked,
+                })
+              "
+            />
+            Notes
+          </label>
+          <button type="button" @click="emit('cancel-export-preview')">Cancel</button>
+          <button type="button" class="primary" @click="emit('confirm-export-selected')">
+            Confirm export
+          </button>
+        </div>
+      </div>
+      <div class="preview-items">
+        <article v-for="item in exportPreview" :key="item.task_id" class="preview-item">
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.tags.join(', ') }}</span>
+          <small>
+            {{ item.attachments.length }} attachments · {{ item.notes.length }} notes
+          </small>
+        </article>
+      </div>
+    </section>
 
     <div v-if="tasks.length === 0" class="empty">{{ STRINGS.tasks.empty }}</div>
 

@@ -96,5 +96,6 @@ steps and deterministic arXiv/Crossref metadata lookups. Configure `api_key`,
 locator, evaluator, and summarizer calls. Local PDF text extraction uses
 `pypdf`; Zotero export prepares a safe connector-style payload and can send it
 to an optional `zotero_bridge_url`. The Tasks page can resolve locator
-candidates, run one queue pass, or start a background worker; arXiv PDFs are
-cached under the local data directory when download succeeds.
+candidates, preview Zotero payloads before confirming export, run one queue
+pass, or start a background worker; arXiv and discovered free PDFs are cached
+under the local data directory when download succeeds.

@@ -108,6 +108,23 @@ date as the handoff source for future implementation.
   and disambiguation UI data flow.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: URL PDF Discovery And Zotero Preview
+
+- [x] Classify HTTP(S) PDF links as URL inputs while keeping arXiv/DOI URLs
+  normalized as arXiv/DOI inputs.
+- [x] Add URL fallback metadata so generic paper URLs can enter the pipeline.
+- [x] Download/cache direct PDF URLs as legal free PDF sources.
+- [x] Discover landing-page PDF links from `citation_pdf_url`, application/pdf
+  links, and `.pdf` anchors.
+- [x] Add `POST /export/zotero/preview` for explicit export confirmation.
+- [x] Let export preview and confirmed export respect include-PDF and
+  include-notes toggles.
+- [x] Add a task-list Zotero export preview panel with PDF/notes toggles,
+  cancel, and confirm export controls.
+- [x] Add tests for direct PDF URLs, discovered PDF URLs, and export preview
+  toggles.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -153,6 +170,7 @@ date as the handoff source for future implementation.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
 - `68df58e` - Add background worker and PDF cache.
 - `705cb9d` - Add metadata lookup and disambiguation.
+- Pending - URL PDF discovery and Zotero preview.
 
 ## Verification
 

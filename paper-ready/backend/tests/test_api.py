@@ -45,6 +45,19 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         assert worker.status_code == 200
         assert worker.json()["running"] is False
 
+        preview = client.post(
+            "/export/zotero/preview",
+            json={
+                "task_ids": [task_id],
+                "include_pdf": False,
+                "include_notes": False,
+                "category": "Brief Reading",
+            },
+        )
+        assert preview.status_code == 200
+        assert preview.json()[0]["attachments"] == []
+        assert preview.json()[0]["notes"] == []
+
         listed = client.get("/tasks")
         assert listed.status_code == 200
         assert listed.json()[0]["task_id"] == task_id

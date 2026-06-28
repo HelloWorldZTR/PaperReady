@@ -14,14 +14,14 @@ def detect_input_type(raw_input: str) -> str:
     """Classify one line of user input into a supported PRD input type."""
     value = raw_input.strip()
     lower = value.lower()
-    if lower.endswith(".pdf"):
-        return "local_pdf"
     if ARXIV_RE.search(value):
         return "arxiv"
     if DOI_RE.search(value):
         return "doi"
     if lower.startswith(("http://", "https://")):
         return "url"
+    if lower.endswith(".pdf"):
+        return "local_pdf"
     if value:
         return "title"
     return "unknown"
@@ -35,4 +35,3 @@ def create_tasks(inputs: list[str]) -> list[PaperTask]:
         if value:
             tasks.append(PaperTask(raw_input=value, input_type=detect_input_type(value)))
     return tasks
-

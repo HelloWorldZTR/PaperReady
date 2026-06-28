@@ -11,6 +11,7 @@ from . import database
 from .models import (
     AppSettings,
     ExportRequest,
+    ExportPreviewRequest,
     PaperTask,
     RecommendationOverride,
     ReportRequest,
@@ -28,6 +29,7 @@ from .services import (
     resolve_task,
     retry_task,
 )
+from .modules.zotero import build_zotero_payload
 from .worker import worker_manager
 
 
@@ -181,6 +183,29 @@ def post_export(request: ExportRequest) -> list[PaperTask]:
     exported = []
     settings = database.get_settings()
     for task_id in request.task_ids:
-        task = export_to_zotero(_load_task(task_id), request.category, settings)
+        task = export_to_zotero(
+            _load_task(task_id),
+            request.category,
+            settings,
+            include_pdf=request.include_pdf,
+            include_notes=request.include_notes,
+        )
         exported.append(database.save_task(task))
     return exported
+
+
+@app.post("/export/zotero/preview")
+def post_export_preview(request: ExportPreviewRequest) -> list[dict]:
+    """Return connector-style Zotero payloads before the user confirms export."""
+    payloads = []
+    for task_id in request.task_ids:
+        task = _load_task(task_id)
+        payloads.append(
+            build_zotero_payload(
+                task,
+                request.category,
+                include_pdf=request.include_pdf,
+                include_notes=request.include_notes,
+            )
+        )
+    return payloads

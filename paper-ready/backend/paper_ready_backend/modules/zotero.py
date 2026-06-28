@@ -7,7 +7,12 @@ import httpx
 from ..models import AppSettings, PaperTask
 
 
-def build_zotero_payload(task: PaperTask, category: str | None) -> dict:
+def build_zotero_payload(
+    task: PaperTask,
+    category: str | None,
+    include_pdf: bool = True,
+    include_notes: bool = True,
+) -> dict:
     """Build a safe connector-style payload for one processed paper."""
     paper = task.paper
     evaluation = task.evaluation
@@ -26,16 +31,20 @@ def build_zotero_payload(task: PaperTask, category: str | None) -> dict:
         "abstractNote": paper.abstract if paper else None,
         "tags": [category or (evaluation.value_recommendation if evaluation else "Needs Review")],
         "collections": [category] if category else [],
-        "attachments": _attachment_payload(task),
-        "notes": _notes_payload(report),
+        "attachments": _attachment_payload(task) if include_pdf else [],
+        "notes": _notes_payload(report) if include_notes else [],
     }
 
 
 def export_to_zotero(
-    task: PaperTask, category: str | None, settings: AppSettings
+    task: PaperTask,
+    category: str | None,
+    settings: AppSettings,
+    include_pdf: bool = True,
+    include_notes: bool = True,
 ) -> PaperTask:
     """Prepare or send a Zotero bridge payload without touching SQLite."""
-    payload = build_zotero_payload(task, category)
+    payload = build_zotero_payload(task, category, include_pdf, include_notes)
     task.export_status = f"Prepared: {payload['tags'][0]}"
     bridge_url = settings.zotero_bridge_url
     if bridge_url:

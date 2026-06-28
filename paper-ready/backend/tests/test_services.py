@@ -68,6 +68,34 @@ def test_disambiguation_candidate_can_be_resolved(monkeypatch) -> None:
     assert resolved.pdf is None
 
 
+def test_url_pdf_input_downloads_free_pdf(tmp_path, monkeypatch) -> None:
+    """Direct PDF URLs are treated as legal free PDF sources."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    task = process_task(create_tasks(["https://example.org/paper.pdf"])[0], AppSettings())
+    assert task.pdf.source_type == "free_url"
+    assert task.pdf.local_path.endswith("paper.pdf")
+    assert task.pdf_status == "PDF ready"
+
+
+def test_url_landing_page_discovers_pdf(tmp_path, monkeypatch) -> None:
+    """Landing page URLs can discover advertised citation PDF URLs."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(downloader, "discover_pdf_url", lambda _url: "https://e.org/free.pdf")
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    task = process_task(create_tasks(["https://example.org/paper"])[0], AppSettings())
+    assert task.pdf.source_type == "discovered_free_url"
+    assert task.pdf.source_url == "https://e.org/free.pdf"
+
+
 def test_pipeline_exposes_decoupled_modules() -> None:
     """The backend publishes the ordered pipeline subsystem."""
     keys = [step["key"] for step in describe_pipeline()]
@@ -132,3 +160,23 @@ def test_zotero_bridge_builds_safe_payload_without_sqlite_write(tmp_path, monkey
     assert payload["attachments"][0]["url"].startswith("https://arxiv.org/pdf/")
     assert exported.status == "Exported"
     assert exported.export_status == "Prepared: Brief Reading"
+
+
+def test_zotero_preview_can_hide_pdf_and_notes(tmp_path, monkeypatch) -> None:
+    """Zotero payload preview respects attachment and note toggles."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
+    task = generate_report(task, AppSettings(), ReportRequest(report_type="Quick Brief"))
+    payload = build_zotero_payload(
+        task,
+        "Brief Reading",
+        include_pdf=False,
+        include_notes=False,
+    )
+    assert payload["attachments"] == []
+    assert payload["notes"] == []

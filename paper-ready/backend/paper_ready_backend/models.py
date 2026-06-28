@@ -195,3 +195,7 @@ class ExportRequest(BaseModel):
     include_pdf: bool = True
     include_notes: bool = True
     category: ValueRecommendation | None = None
+
+
+class ExportPreviewRequest(ExportRequest):
+    pass

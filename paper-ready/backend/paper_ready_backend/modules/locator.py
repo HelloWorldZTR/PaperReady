@@ -52,6 +52,14 @@ def locate_paper(task: PaperTask, settings: AppSettings | None = None) -> PaperT
             abstract="Metadata extracted from a user-provided PDF placeholder.",
             source_confidence=0.62,
         )
+    elif task.input_type == "url":
+        paper = PaperRecord(
+            title=_title_from_url(raw),
+            urls=[raw],
+            abstract="URL-only metadata requires later LLM or API enrichment.",
+            source_confidence=0.52,
+            resolution_source="url_fallback",
+        )
     elif task.input_type == "title" and len(raw) >= 12:
         title_candidates = _fallback_title_candidates(raw)
         if title_candidates:
@@ -158,6 +166,12 @@ def _fallback_title_candidates(raw: str) -> list[dict]:
         ).model_dump()
         for part in parts[:3]
     ]
+
+
+def _title_from_url(url: str) -> str:
+    """Create a readable fallback title from a paper URL."""
+    tail = url.rstrip("/").rsplit("/", 1)[-1] or url
+    return tail.replace("-", " ").replace("_", " ").removesuffix(".pdf")
 
 
 def _locate_with_llm(raw_input: str, settings: AppSettings | None) -> PaperRecord | None:
