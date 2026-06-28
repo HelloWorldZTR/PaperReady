@@ -73,7 +73,7 @@ date as the handoff source for future implementation.
 - [x] Add optional `zotero_bridge_url` setting for HTTP bridge export without
   direct SQLite writes.
 - [x] Add tests for semantic section extraction and Zotero export payloads.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -117,7 +117,7 @@ date as the handoff source for future implementation.
 - `072e323` - Implement local-first MVP skeleton.
 - `bec90db` - Refactor pipeline and macOS navigation.
 - `fb7f0dc` - Add task retry and settings controls.
-- Pending - LLM/PDF/Zotero service boundaries.
+- `0892dcb` - Add LLM PDF and Zotero service boundaries.
 
 ## Verification
 
