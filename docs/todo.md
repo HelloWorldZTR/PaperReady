@@ -178,6 +178,18 @@ date as the handoff source for future implementation.
 - [x] Add API coverage for task-level YOLO worker behavior.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Local PDF Replacement
+
+- [x] Add `POST /tasks/{task_id}/pdf` for attaching or replacing a local PDF
+  after paper identity is resolved.
+- [x] Validate local PDF paths before marking a replacement as `PDF ready`.
+- [x] Clear parser, evaluation, and report outputs when a task PDF is replaced.
+- [x] Add task-list controls for entering a local PDF path per row.
+- [x] Document local PDF replacement in `docs/api.md` and
+  `paper-ready/README.md`.
+- [x] Add service and API coverage for PDF replacement.
+- [x] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -228,6 +240,7 @@ date as the handoff source for future implementation.
 - `7f61144` - Add YOLO worker report generation.
 - `33e7701` - Add metadata editing UI.
 - `f53850e` - Add per-task YOLO controls.
+- `TBD` - Add local PDF replacement.
 
 ## Verification
 

@@ -174,6 +174,19 @@ Allowed steps are `locator`, `downloader`, `parser`, `evaluator`, and
 `summarizer`. If `step` is omitted, the backend infers a retry point from the
 current task state.
 
+### `POST /tasks/{task_id}/pdf`
+
+Attaches or replaces a local PDF for a task whose paper identity is already
+resolved. The path must point to an existing `.pdf` file. Successful attachment
+marks the PDF as a user upload and clears parser, evaluation, and report outputs
+so downstream steps can rerun against the replacement file.
+
+Request:
+
+```json
+{ "path": "/Users/example/Papers/paper.pdf" }
+```
+
 ### `POST /tasks/{task_id}/resolve`
 
 Resolves a task paused at `Needs disambiguation`. The user may choose a

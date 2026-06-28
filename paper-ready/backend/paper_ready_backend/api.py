@@ -12,6 +12,7 @@ from .models import (
     AppSettings,
     ExportRequest,
     ExportPreviewRequest,
+    PdfAttachRequest,
     PaperTask,
     RecommendationOverride,
     ReportRequest,
@@ -22,6 +23,7 @@ from .models import (
 )
 from .services import (
     create_tasks,
+    attach_local_pdf,
     describe_pipeline,
     generate_report,
     export_to_zotero,
@@ -143,6 +145,13 @@ def post_process_task(task_id: str) -> PaperTask:
 def post_retry_task(task_id: str, request: TaskRetryRequest) -> PaperTask:
     """Reset one task from a pipeline step and run automatic processing."""
     task = retry_task(_load_task(task_id), request, database.get_settings())
+    return database.save_task(task)
+
+
+@app.post("/tasks/{task_id}/pdf", response_model=PaperTask)
+def post_attach_pdf(task_id: str, request: PdfAttachRequest) -> PaperTask:
+    """Attach or replace one task's local PDF."""
+    task = attach_local_pdf(_load_task(task_id), request)
     return database.save_task(task)
 
 

@@ -1,12 +1,18 @@
 """Tests for backend workflow services."""
 
-from paper_ready_backend.models import AppSettings, ReportRequest, TaskRetryRequest
+from paper_ready_backend.models import (
+    AppSettings,
+    PdfAttachRequest,
+    ReportRequest,
+    TaskRetryRequest,
+)
 from paper_ready_backend.modules import downloader
 from paper_ready_backend.modules import locator
 from paper_ready_backend.modules.parser import parse_text_sections
 from paper_ready_backend.modules import zotero
 from paper_ready_backend.modules.zotero import build_zotero_payload, export_to_zotero
 from paper_ready_backend.services import (
+    attach_local_pdf,
     create_tasks,
     describe_pipeline,
     detect_input_type,
@@ -145,6 +151,27 @@ def test_retry_resets_from_selected_pipeline_step(tmp_path, monkeypatch) -> None
     assert retried.report is None
     assert retried.evaluation is not None
     assert retried.status == "Ready for report"
+
+
+def test_attach_local_pdf_clears_downstream_outputs(tmp_path, monkeypatch) -> None:
+    """Replacing a local PDF resets parser, evaluation, and report outputs."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    replacement = tmp_path / "replacement.pdf"
+    replacement.write_bytes(b"%PDF-1.4")
+    task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
+    task = generate_report(task, AppSettings(), ReportRequest(report_type="Quick Brief"))
+    attached = attach_local_pdf(task, PdfAttachRequest(path=str(replacement)))
+    assert attached.pdf.local_path == str(replacement)
+    assert attached.pdf.source_type == "user_upload"
+    assert attached.status == "PDF ready"
+    assert attached.parsed is None
+    assert attached.evaluation is None
+    assert attached.report is None
 
 
 def test_budget_pause_prevents_report_generation(tmp_path, monkeypatch) -> None:

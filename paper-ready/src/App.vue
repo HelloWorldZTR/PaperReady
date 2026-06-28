@@ -200,6 +200,23 @@ async function retryTask(task, step) {
   }
 }
 
+/** Attach or replace a task's local PDF path. */
+async function attachPdf(task, path) {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    await api(`/tasks/${task.task_id}/pdf`, {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+    await refreshTasks();
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
 /** Set task-level YOLO override for all selected rows. */
 async function setSelectedYolo(enabled) {
   loading.value = true;
@@ -374,6 +391,7 @@ onMounted(initialize);
           :zotero-status="zoteroStatus"
           :export-preview="exportPreview"
           :export-options="exportOptions"
+          @attach-pdf="attachPdf"
           @cancel-export-preview="cancelExportPreview"
           @confirm-export-selected="confirmExportSelected"
           @preview-export-selected="previewExportSelected"

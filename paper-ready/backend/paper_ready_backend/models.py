@@ -188,6 +188,10 @@ class TaskRetryRequest(BaseModel):
     step: Literal["locator", "downloader", "parser", "evaluator", "summarizer"] | None = None
 
 
+class PdfAttachRequest(BaseModel):
+    path: str
+
+
 class TaskResolveRequest(BaseModel):
     candidate_index: int | None = None
     paper: PaperRecord | None = None

@@ -42,6 +42,15 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         assert retried.status_code == 200
         assert retried.json()["pdf_status"] == "PDF ready"
 
+        replacement = tmp_path / "replacement.pdf"
+        replacement.write_bytes(b"%PDF-1.4")
+        attached = client.post(
+            f"/tasks/{task_id}/pdf",
+            json={"path": str(replacement)},
+        )
+        assert attached.status_code == 200
+        assert attached.json()["pdf"]["source_type"] == "user_upload"
+
         ambiguous = client.post("/tasks", json={"inputs": ["Paper One or Paper Two"]})
         ambiguous_id = ambiguous.json()[0]["task_id"]
         blocked = client.post(f"/tasks/{ambiguous_id}/process")

@@ -14,6 +14,7 @@ const props = defineProps({
   exportOptions: { type: Object, required: true },
 });
 const emit = defineEmits([
+  "attach-pdf",
   "cancel-export-preview",
   "confirm-export-selected",
   "generate-report",
@@ -47,6 +48,7 @@ function choices(task) {
       retryStep: "evaluator",
       editingMetadata: false,
       metadataDraft: null,
+      pdfPath: "",
     };
   }
   return rowChoices[task.task_id];
@@ -389,6 +391,20 @@ function saveMetadata(task) {
                   @click="emit('retry-task', task, choices(task).retryStep)"
                 >
                   Retry
+                </button>
+              </div>
+              <div class="pdf-controls">
+                <input
+                  v-model="choices(task).pdfPath"
+                  type="text"
+                  placeholder="Local PDF path"
+                />
+                <button
+                  type="button"
+                  :disabled="loading || !choices(task).pdfPath"
+                  @click="emit('attach-pdf', task, choices(task).pdfPath)"
+                >
+                  Attach PDF
                 </button>
               </div>
             </td>

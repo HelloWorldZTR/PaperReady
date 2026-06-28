@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .models import (
     AppSettings,
     PaperTask,
+    PdfAttachRequest,
+    PdfRecord,
     TaskResolveRequest,
     TaskRetryRequest,
     TaskYoloRequest,
@@ -33,6 +37,37 @@ def retry_task(task: PaperTask, request: TaskRetryRequest, settings: AppSettings
     """Reset a task from a pipeline step and immediately process it."""
     reset = default_pipeline().reset_from(task, request.step)
     return process_task(reset, settings)
+
+
+def attach_local_pdf(task: PaperTask, request: PdfAttachRequest) -> PaperTask:
+    """Attach or replace a local PDF and clear downstream outputs."""
+    if not task.paper:
+        task.failure_reason = "Resolve paper identity before attaching a PDF"
+        task.next_action = "Resolve identity"
+        return task
+    path = Path(request.path).expanduser()
+    if path.suffix.lower() != ".pdf" or not path.exists():
+        task.failure_reason = "Local PDF path not found or not a PDF"
+        task.next_action = "Provide a valid local PDF path"
+        return task
+    task.pdf = PdfRecord(
+        paper_id=task.paper.paper_id,
+        source_type="user_upload",
+        local_path=str(path),
+        status="PDF ready",
+        title_verified=False,
+    )
+    task.status = "PDF ready"
+    task.pdf_status = "PDF ready"
+    task.parsed = None
+    task.parser_status = "Queued"
+    task.evaluation = None
+    task.evaluation_status = "Queued"
+    task.report = None
+    task.report_status = "Not requested"
+    task.failure_reason = None
+    task.next_action = "Parse PDF"
+    return task
 
 
 def resolve_task(task: PaperTask, request: TaskResolveRequest) -> PaperTask:
