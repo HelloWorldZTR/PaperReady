@@ -19,6 +19,14 @@ def get_db_path() -> Path:
     return Path(__file__).resolve().parents[1] / "paper_ready.db"
 
 
+def get_data_dir() -> Path:
+    """Return the active local data directory for downloaded artifacts."""
+    override = os.getenv("PAPERREADY_DATA_DIR")
+    if override:
+        return Path(override)
+    return get_db_path().parent / "data"
+
+
 def connect() -> sqlite3.Connection:
     """Open a SQLite connection with row dictionaries enabled."""
     db_path = get_db_path()
@@ -145,4 +153,3 @@ def export_payload() -> dict[str, Any]:
         "task_count": len(list_tasks()),
         "settings": get_settings().model_dump(),
     }
-

@@ -75,6 +75,22 @@ date as the handoff source for future implementation.
 - [x] Add tests for semantic section extraction and Zotero export payloads.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Background Worker And PDF Cache
+
+- [x] Add a FastAPI-process background worker manager for the durable queue.
+- [x] Add worker APIs for status, start, stop, and run-once.
+- [x] Use settings-derived stage semaphores for automatic pipeline concurrency.
+- [x] Stop the worker during FastAPI shutdown.
+- [x] Add task-list controls for run-once, start worker, and stop worker.
+- [x] Add local data directory support through `PAPERREADY_DATA_DIR`.
+- [x] Download arXiv PDFs into a local `data/pdfs` cache when network download
+  succeeds.
+- [x] Keep legal source URL metadata and failure reason when local PDF download
+  is unavailable.
+- [x] Add tests for worker run-once and cached PDF paths without real network
+  access.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -86,7 +102,7 @@ date as the handoff source for future implementation.
 - [x] Record failure reasons and timestamps on every step.
 - [x] Keep prompt templates in module-level variables outside functions.
 - [x] Add OpenAI-compatible client integration behind a service boundary.
-- [ ] Add per-stage concurrency settings before enabling background workers.
+- [x] Add per-stage concurrency settings before enabling background workers.
 
 ## Frontend Tasks
 
@@ -118,6 +134,7 @@ date as the handoff source for future implementation.
 - `bec90db` - Refactor pipeline and macOS navigation.
 - `fb7f0dc` - Add task retry and settings controls.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
+- Pending - Background worker and PDF cache.
 
 ## Verification
 

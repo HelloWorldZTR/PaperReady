@@ -10,6 +10,7 @@ and a FastAPI backend backed by SQLite.
 - `backend/paper_ready_backend/llm_client.py`: OpenAI-compatible LLM boundary.
 - `backend/paper_ready_backend/modules/`: decoupled paper workflow modules.
 - `backend/paper_ready_backend/pipeline.py`: ordered pipeline subsystem.
+- `backend/paper_ready_backend/worker.py`: local background queue worker.
 - `src-tauri/`: Tauri shell that owns the desktop window lifecycle.
 
 ## Prerequisites
@@ -44,6 +45,7 @@ python -m uvicorn paper_ready_backend.main:app --host 127.0.0.1 --port 8765
 Useful environment variables:
 
 - `PAPERREADY_DB_PATH`: override the SQLite database location.
+- `PAPERREADY_DATA_DIR`: override the local artifact directory for cached PDFs.
 - `PAPERREADY_PYTHON`: Python executable used by Tauri to start FastAPI.
 - `PAPERREADY_BACKEND_EXTERNAL=1`: prevent Tauri from spawning the backend.
 
@@ -91,4 +93,6 @@ The backend can run without provider credentials by using deterministic fallback
 steps. Configure `api_key`, `llm_api_base_url`, and per-stage models in Settings
 to enable OpenAI-compatible locator, evaluator, and summarizer calls. Local PDF
 text extraction uses `pypdf`; Zotero export prepares a safe connector-style
-payload and can send it to an optional `zotero_bridge_url`.
+payload and can send it to an optional `zotero_bridge_url`. The Tasks page can
+run one queue pass or start a background worker; arXiv PDFs are cached under the
+local data directory when download succeeds.

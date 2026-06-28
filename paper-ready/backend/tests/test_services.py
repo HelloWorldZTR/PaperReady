@@ -1,6 +1,7 @@
 """Tests for backend workflow services."""
 
 from paper_ready_backend.models import AppSettings, ReportRequest, TaskRetryRequest
+from paper_ready_backend.modules import downloader
 from paper_ready_backend.modules.parser import parse_text_sections
 from paper_ready_backend.modules.zotero import build_zotero_payload, export_to_zotero
 from paper_ready_backend.services import (
@@ -22,12 +23,15 @@ def test_detect_input_type_handles_supported_inputs() -> None:
     assert detect_input_type("A Useful Paper Title") == "title"
 
 
-def test_process_arxiv_task_reaches_report_ready() -> None:
+def test_process_arxiv_task_reaches_report_ready(tmp_path, monkeypatch) -> None:
     """A straightforward arXiv task advances through evaluation."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(downloader, "_download_pdf", lambda _url, path: path.write_bytes(b"%PDF-1.4") and None)
     task = create_tasks(["2401.12345"])[0]
     processed = process_task(task, AppSettings(research_interests="paper demo"))
     assert processed.status == "Ready for report"
     assert processed.pdf_status == "PDF ready"
+    assert processed.pdf.local_path
     assert processed.parser_status == "Parsed"
     assert processed.evaluation is not None
 
@@ -40,8 +44,10 @@ def test_pipeline_exposes_decoupled_modules() -> None:
     assert describe_pipeline()[-1]["mode"] == "manual"
 
 
-def test_retry_resets_from_selected_pipeline_step() -> None:
+def test_retry_resets_from_selected_pipeline_step(tmp_path, monkeypatch) -> None:
     """Retry clears downstream outputs before rerunning automatic modules."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(downloader, "_download_pdf", lambda _url, path: path.write_bytes(b"%PDF-1.4") and None)
     task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
     task = generate_report(task, AppSettings(), ReportRequest(report_type="Quick Brief"))
     retried = retry_task(task, TaskRetryRequest(step="evaluator"), AppSettings())
@@ -50,8 +56,10 @@ def test_retry_resets_from_selected_pipeline_step() -> None:
     assert retried.status == "Ready for report"
 
 
-def test_budget_pause_prevents_report_generation() -> None:
+def test_budget_pause_prevents_report_generation(tmp_path, monkeypatch) -> None:
     """Report generation pauses before exceeding configured budget."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(downloader, "_download_pdf", lambda _url, path: path.write_bytes(b"%PDF-1.4") and None)
     task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
     paused = generate_report(
         task,
@@ -81,8 +89,10 @@ def test_parser_extracts_coarse_semantic_sections() -> None:
     assert sections["method"].startswith("The method")
 
 
-def test_zotero_bridge_builds_safe_payload_without_sqlite_write() -> None:
+def test_zotero_bridge_builds_safe_payload_without_sqlite_write(tmp_path, monkeypatch) -> None:
     """Zotero export prepares connector payloads and records local status."""
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(downloader, "_download_pdf", lambda _url, path: path.write_bytes(b"%PDF-1.4") and None)
     task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
     payload = build_zotero_payload(task, "Brief Reading")
     exported = export_to_zotero(task, "Brief Reading", AppSettings())

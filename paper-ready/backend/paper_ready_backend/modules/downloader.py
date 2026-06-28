@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from ..models import PaperTask, PdfRecord
+from pathlib import Path
+
+import httpx
+
+from ..database import get_data_dir
+from ..models import AppSettings, PaperTask, PdfRecord
 
 
-def acquire_pdf(task: PaperTask) -> PaperTask:
+def acquire_pdf(task: PaperTask, _: AppSettings | None = None) -> PaperTask:
     """Attach a local PDF, derive an arXiv PDF URL, or keep metadata-only."""
     if not task.paper:
         return task
@@ -20,12 +25,19 @@ def acquire_pdf(task: PaperTask) -> PaperTask:
             title_verified=True,
         )
     elif task.paper.arxiv_id:
+        source_url = f"https://arxiv.org/pdf/{task.paper.arxiv_id}"
+        local_path = _arxiv_pdf_path(task.paper.arxiv_id)
+        failure_reason = None
+        if not local_path.exists():
+            failure_reason = _download_pdf(source_url, local_path)
         task.pdf = PdfRecord(
             paper_id=task.paper.paper_id,
             source_type="arxiv",
-            source_url=f"https://arxiv.org/pdf/{task.paper.arxiv_id}",
+            source_url=source_url,
+            local_path=str(local_path) if local_path.exists() else None,
             status="PDF ready",
-            title_verified=True,
+            failure_reason=failure_reason,
+            title_verified=local_path.exists(),
         )
     else:
         task.pdf = PdfRecord(
@@ -44,3 +56,24 @@ def acquire_pdf(task: PaperTask) -> PaperTask:
     task.next_action = "Parse PDF"
     return task
 
+
+def _arxiv_pdf_path(arxiv_id: str) -> Path:
+    """Return the local cache path for an arXiv PDF."""
+    safe_id = arxiv_id.replace("/", "_")
+    path = get_data_dir() / "pdfs" / f"arxiv_{safe_id}.pdf"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _download_pdf(url: str, local_path: Path) -> str | None:
+    """Download a legal free PDF URL to disk, returning a failure reason."""
+    try:
+        response = httpx.get(url, timeout=5.0, follow_redirects=True)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "").lower()
+        if "pdf" not in content_type and not response.content.startswith(b"%PDF"):
+            return f"Unexpected content type: {content_type or 'unknown'}"
+        local_path.write_bytes(response.content)
+        return None
+    except Exception as exc:
+        return str(exc)

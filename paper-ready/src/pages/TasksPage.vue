@@ -8,6 +8,7 @@ const props = defineProps({
   settings: { type: Object, required: true },
   selectedTaskIds: { type: Object, required: true },
   tasks: { type: Array, required: true },
+  workerStatus: { type: Object, required: true },
 });
 const emit = defineEmits([
   "export-selected",
@@ -16,6 +17,8 @@ const emit = defineEmits([
   "process-all",
   "refresh",
   "retry-task",
+  "run-worker-once",
+  "set-worker-running",
   "toggle-selection",
 ]);
 
@@ -53,8 +56,7 @@ function canGenerate(task) {
         <p>
           <strong>{{ tasks.length }}</strong> tasks · {{ selectedCount }} selected · ${{
             totalCost
-          }}
-          estimated
+          }} estimated · worker {{ workerStatus.running ? "running" : "idle" }}
         </p>
       </div>
       <div class="actions">
@@ -63,6 +65,16 @@ function canGenerate(task) {
         </button>
         <button type="button" :disabled="loading" @click="emit('process-all')">
           {{ STRINGS.tasks.processAll }}
+        </button>
+        <button type="button" :disabled="loading" @click="emit('run-worker-once')">
+          Run once
+        </button>
+        <button
+          type="button"
+          :disabled="loading"
+          @click="emit('set-worker-running', !workerStatus.running)"
+        >
+          {{ workerStatus.running ? "Stop worker" : "Start worker" }}
         </button>
         <button
           type="button"

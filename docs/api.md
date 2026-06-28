@@ -49,6 +49,39 @@ The default pipeline is assembled from decoupled modules:
 `locator` through `evaluator` are automatic resumable steps. `summarizer` and
 `zotero` are manual pipeline modules triggered by explicit user action.
 
+## Worker
+
+### `GET /worker`
+
+Returns background worker status:
+
+```json
+{
+  "running": false,
+  "last_run_count": 0,
+  "last_error": null
+}
+```
+
+### `POST /worker/start`
+
+Starts the FastAPI-process background queue worker. The worker polls the local
+SQLite queue and runs automatic pipeline steps for runnable tasks.
+
+### `POST /worker/stop`
+
+Stops the background queue worker.
+
+### `POST /worker/run-once`
+
+Runs one background-worker pass over currently runnable tasks without keeping
+the polling worker alive. This is useful for manual batch advancement from the
+task list UI.
+
+Worker execution uses settings-derived stage semaphores so locating/downloading,
+parsing/evaluation, and future summarization work can respect configured
+concurrency limits.
+
 ## Settings
 
 ### `GET /settings`
@@ -111,6 +144,10 @@ Advances one task through safe automatic workflow steps:
 4. evaluate reading value
 
 User-blocked and budget-paused tasks are not forced forward.
+
+The downloader stores arXiv PDFs under the local data directory when download
+succeeds. `PAPERREADY_DATA_DIR` overrides that directory; otherwise it is placed
+next to the SQLite database under `data/`.
 
 ### `POST /tasks/{task_id}/retry`
 

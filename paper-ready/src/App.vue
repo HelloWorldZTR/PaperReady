@@ -15,6 +15,7 @@ const selectedTaskIds = ref(new Set());
 const loading = ref(false);
 const errorMessage = ref("");
 const pipeline = ref([]);
+const workerStatus = ref({ running: false, last_run_count: 0, last_error: null });
 const settings = ref({
   research_interests: "",
   batch_budget: 3,
@@ -48,9 +49,39 @@ async function initialize() {
   try {
     settings.value = await api("/settings");
     pipeline.value = await api("/pipeline");
+    workerStatus.value = await api("/worker");
     await refreshTasks();
   } catch (error) {
     errorMessage.value = `Backend unavailable: ${error.message}`;
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Run one background-worker pass and refresh visible queue state. */
+async function runWorkerOnce() {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    workerStatus.value = await api("/worker/run-once", { method: "POST" });
+    await refreshTasks();
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Start or stop the background queue worker. */
+async function setWorkerRunning(shouldRun) {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    workerStatus.value = await api(shouldRun ? "/worker/start" : "/worker/stop", {
+      method: "POST",
+    });
+  } catch (error) {
+    errorMessage.value = error.message;
   } finally {
     loading.value = false;
   }
@@ -247,12 +278,15 @@ onMounted(initialize);
           :settings="settings"
           :selected-task-ids="selectedTaskIds"
           :tasks="tasks"
+          :worker-status="workerStatus"
           @export-selected="exportSelected"
           @generate-report="generateReport"
           @override-recommendation="overrideRecommendation"
           @process-all="processAll"
           @refresh="refreshTasks"
           @retry-task="retryTask"
+          @run-worker-once="runWorkerOnce"
+          @set-worker-running="setWorkerRunning"
           @toggle-selection="toggleSelection"
         />
         <SettingsPage

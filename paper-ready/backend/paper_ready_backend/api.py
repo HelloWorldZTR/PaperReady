@@ -26,13 +26,17 @@ from .services import (
     process_task,
     retry_task,
 )
+from .worker import worker_manager
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Initialize local durable storage for the API process lifetime."""
     database.init_db()
-    yield
+    try:
+        yield
+    finally:
+        worker_manager.stop()
 
 
 app = FastAPI(title="PaperReady Backend", version="0.1.0", lifespan=lifespan)
@@ -61,6 +65,30 @@ def storage_debug() -> dict:
 def get_pipeline() -> list[dict[str, str | bool]]:
     """Return the ordered backend processing pipeline."""
     return describe_pipeline()
+
+
+@app.get("/worker")
+def get_worker_status() -> dict:
+    """Return background worker status."""
+    return worker_manager.status()
+
+
+@app.post("/worker/start")
+def post_worker_start() -> dict:
+    """Start the background queue worker."""
+    return worker_manager.start()
+
+
+@app.post("/worker/stop")
+def post_worker_stop() -> dict:
+    """Stop the background queue worker."""
+    return worker_manager.stop()
+
+
+@app.post("/worker/run-once")
+def post_worker_run_once() -> dict:
+    """Run one worker pass over currently runnable tasks."""
+    return worker_manager.run_once()
 
 
 @app.get("/settings", response_model=AppSettings)

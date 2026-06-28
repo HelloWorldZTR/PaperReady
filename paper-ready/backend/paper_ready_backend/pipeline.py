@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, ContextManager
 
 from .models import AppSettings, PaperTask
 from .modules.downloader import acquire_pdf
@@ -46,16 +47,23 @@ class PaperPipeline:
         """Return the ordered pipeline shape for diagnostics and UI."""
         return [step.describe() for step in self.steps]
 
-    def process(self, task: PaperTask, settings: AppSettings) -> PaperTask:
+    def process(
+        self,
+        task: PaperTask,
+        settings: AppSettings,
+        stage_limiter: Callable[[str], ContextManager] | None = None,
+    ) -> PaperTask:
         """Advance one task through incomplete steps until blocked or ready."""
         if task.status in USER_BLOCKED_STATUSES:
             return task
+        limiter = stage_limiter or (lambda _: nullcontext())
         for step in self.steps:
             if step.mode != "automatic":
                 continue
             if step.is_complete(task):
                 continue
-            task = step.runner(task, settings)
+            with limiter(step.key):
+                task = step.runner(task, settings)
             if task.status in USER_BLOCKED_STATUSES:
                 break
         return task
@@ -92,7 +100,7 @@ def _run_locator(task: PaperTask, _: AppSettings) -> PaperTask:
 
 def _run_downloader(task: PaperTask, _: AppSettings) -> PaperTask:
     """Run the downloader module with the pipeline runner signature."""
-    return acquire_pdf(task)
+    return acquire_pdf(task, _)
 
 
 def _run_parser(task: PaperTask, _: AppSettings) -> PaperTask:
