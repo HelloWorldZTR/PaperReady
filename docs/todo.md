@@ -139,7 +139,7 @@ date as the handoff source for future implementation.
 - [x] Surface connector readiness in the task-list export preview with a
   manual Probe Zotero action.
 - [x] Add tests for connector probe, connector import success, and status API.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -187,7 +187,7 @@ date as the handoff source for future implementation.
 - `68df58e` - Add background worker and PDF cache.
 - `705cb9d` - Add metadata lookup and disambiguation.
 - `0552bfe` - Add URL PDF discovery and export preview.
-- Pending - Zotero connector confirmation flow.
+- `8259ee1` - Add Zotero connector confirmation flow.
 
 ## Verification
 
