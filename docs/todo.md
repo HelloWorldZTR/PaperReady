@@ -190,6 +190,13 @@ date as the handoff source for future implementation.
 - [x] Add service and API coverage for PDF replacement.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Report Preview UI
+
+- [x] Render generated report sections inline from each task row.
+- [x] Keep report previews collapsed by default to preserve table density.
+- [x] Document generated report inspection in `paper-ready/README.md`.
+- [x] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -241,6 +248,7 @@ date as the handoff source for future implementation.
 - `33e7701` - Add metadata editing UI.
 - `f53850e` - Add per-task YOLO controls.
 - `f6a65bb` - Add local PDF replacement.
+- `TBD` - Add report preview UI.
 
 ## Verification
 

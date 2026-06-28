@@ -492,6 +492,33 @@ th {
   min-width: 190px;
 }
 
+.report-preview {
+  background: rgba(246, 246, 248, 0.82);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  margin-top: 8px;
+  max-width: 260px;
+  padding: 8px;
+}
+
+.report-preview summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.report-preview section {
+  margin-top: 8px;
+}
+
+.report-preview p {
+  color: #515154;
+  margin: 3px 0 0;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .report-cell input,
 .report-cell select,
 .retry-controls select {

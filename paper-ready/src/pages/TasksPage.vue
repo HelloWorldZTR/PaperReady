@@ -59,6 +59,11 @@ function canGenerate(task) {
   return task.status === "Ready for report" || task.status === "Needs review";
 }
 
+/** Return generated report sections in display order. */
+function reportSections(task) {
+  return Object.entries(task.report?.sections || {});
+}
+
 /** Return candidate records for a disambiguation task. */
 function candidates(task) {
   return task.paper?.candidate_records || [];
@@ -368,6 +373,16 @@ function saveMetadata(task) {
                 <option v-for="type in reportTypes" :key="type">{{ type }}</option>
               </select>
               <input v-model="choices(task).modelId" type="text" placeholder="Report model" />
+              <details v-if="task.report" class="report-preview">
+                <summary>{{ task.report.report_type }}</summary>
+                <section
+                  v-for="[heading, content] in reportSections(task)"
+                  :key="`${task.task_id}-${heading}`"
+                >
+                  <strong>{{ heading }}</strong>
+                  <p>{{ content }}</p>
+                </section>
+              </details>
             </td>
             <td>${{ (task.estimated_cost || 0).toFixed(4) }}</td>
             <td class="next-cell">
