@@ -106,7 +106,7 @@ date as the handoff source for future implementation.
   actions.
 - [x] Add tests for deterministic DOI metadata, candidate pause, resolve API,
   and disambiguation UI data flow.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -152,7 +152,7 @@ date as the handoff source for future implementation.
 - `fb7f0dc` - Add task retry and settings controls.
 - `0892dcb` - Add LLM PDF and Zotero service boundaries.
 - `68df58e` - Add background worker and PDF cache.
-- Pending - Metadata lookup and disambiguation.
+- `705cb9d` - Add metadata lookup and disambiguation.
 
 ## Verification
 
