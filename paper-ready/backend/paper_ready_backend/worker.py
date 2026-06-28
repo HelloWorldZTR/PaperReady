@@ -9,11 +9,11 @@ from contextlib import contextmanager
 from typing import Iterator
 
 from . import database
-from .models import AppSettings, PaperTask
+from .models import AppSettings, PaperTask, ReportRequest
+from .modules.summarizer import generate_report
 from .pipeline import USER_BLOCKED_STATUSES, default_pipeline
 
 AUTO_PAUSE_STATUSES = USER_BLOCKED_STATUSES | {
-    "Ready for report",
     "Ready for export",
 }
 
@@ -61,7 +61,9 @@ class WorkerManager:
     def run_once(self) -> dict:
         """Process currently runnable tasks one pass through the pipeline."""
         settings = database.get_settings()
-        tasks = [task for task in database.list_tasks() if _is_runnable(task)]
+        tasks = [
+            task for task in database.list_tasks() if _is_runnable(task, settings)
+        ]
         if not tasks:
             self.last_run_count = 0
             return self.status()
@@ -86,16 +88,38 @@ class WorkerManager:
             time.sleep(1.0)
 
 
-def _is_runnable(task: PaperTask) -> bool:
+def _is_runnable(task: PaperTask, settings: AppSettings) -> bool:
     """Return whether automatic processing may advance this task."""
+    if task.status == "Ready for report":
+        return settings.yolo_default
     return task.status not in AUTO_PAUSE_STATUSES
 
 
 def _process_and_save(task: PaperTask, settings: AppSettings, limiter) -> bool:
     """Process one task and persist the latest durable state."""
     processed = default_pipeline().process(task, settings, limiter)
+    processed = _maybe_generate_yolo_report(processed, settings, limiter)
     database.save_task(processed)
     return True
+
+
+def _maybe_generate_yolo_report(
+    task: PaperTask, settings: AppSettings, limiter
+) -> PaperTask:
+    """Generate the report stage when unattended YOLO mode is enabled."""
+    if not settings.yolo_default or task.status != "Ready for report":
+        return task
+    report_type = (
+        task.evaluation.suggested_report_type
+        if task.evaluation and task.evaluation.suggested_report_type
+        else settings.default_report_type
+    )
+    with limiter("summarizer"):
+        return generate_report(
+            task,
+            settings,
+            ReportRequest(report_type=report_type),
+        )
 
 
 def _stage_limiters(settings: AppSettings) -> dict:
@@ -105,6 +129,7 @@ def _stage_limiters(settings: AppSettings) -> dict:
         "downloader": max(1, settings.locating_concurrency),
         "parser": max(1, settings.evaluation_concurrency),
         "evaluator": max(1, settings.evaluation_concurrency),
+        "summarizer": max(1, settings.summarization_concurrency),
     }
     semaphores = {key: threading.Semaphore(value) for key, value in limits.items()}
 

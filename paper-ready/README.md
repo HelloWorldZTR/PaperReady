@@ -100,4 +100,7 @@ candidates, preview Zotero payloads before confirming export, run one queue
 pass, or start a background worker; arXiv and discovered free PDFs are cached
 under the local data directory when download succeeds. Zotero export defaults to
 prepare-only mode; switch `zotero_export_mode` to `connector` to import through
-Zotero Desktop Connector after the preview confirmation step.
+Zotero Desktop Connector after the preview confirmation step. When
+`yolo_default` is enabled, the background worker also generates reports for
+tasks that reach `Ready for report`, subject to the configured budget and
+summarization concurrency.

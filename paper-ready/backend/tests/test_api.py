@@ -76,3 +76,32 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         listed = client.get("/tasks")
         assert listed.status_code == 200
         assert listed.json()[0]["task_id"] == task_id
+
+
+def test_worker_yolo_generates_report(tmp_path, monkeypatch) -> None:
+    """YOLO settings let the worker continue through report generation."""
+    monkeypatch.setenv("PAPERREADY_DB_PATH", str(tmp_path / "paperready.db"))
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    with TestClient(app) as client:
+        settings = client.get("/settings").json()
+        settings["yolo_default"] = True
+        settings["default_report_type"] = "Quick Brief"
+        saved = client.put("/settings", json=settings)
+        assert saved.status_code == 200
+
+        created = client.post("/tasks", json={"inputs": ["2401.12345"]})
+        task_id = created.json()[0]["task_id"]
+        worker = client.post("/worker/run-once")
+        assert worker.status_code == 200
+        assert worker.json()["last_run_count"] == 1
+
+        task = client.get("/tasks").json()[0]
+        assert task["task_id"] == task_id
+        assert task["status"] == "Ready for export"
+        assert task["report_status"] == "Generated"
+        assert task["report"]["report_type"] == "Quick Brief"

@@ -141,6 +141,19 @@ date as the handoff source for future implementation.
 - [x] Add tests for connector probe, connector import success, and status API.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: YOLO Worker Report Generation
+
+- [x] Let the background worker treat `Ready for report` tasks as runnable only
+  when `yolo_default` is enabled.
+- [x] Generate reports from the worker using the suggested report type or the
+  configured default report type.
+- [x] Apply the summarization concurrency limiter to worker-generated reports.
+- [x] Keep budget checks in the summarizer so YOLO report generation pauses
+  instead of exceeding the configured batch budget.
+- [x] Document YOLO worker behavior in `docs/api.md` and `paper-ready/README.md`.
+- [x] Add API coverage for YOLO worker report generation.
+- [x] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -188,6 +201,7 @@ date as the handoff source for future implementation.
 - `705cb9d` - Add metadata lookup and disambiguation.
 - `0552bfe` - Add URL PDF discovery and export preview.
 - `8259ee1` - Add Zotero connector confirmation flow.
+- `TBD` - Add YOLO worker report generation.
 
 ## Verification
 

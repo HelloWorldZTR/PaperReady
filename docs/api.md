@@ -46,8 +46,9 @@ The default pipeline is assembled from decoupled modules:
 - `summarizer`
 - `zotero`
 
-`locator` through `evaluator` are automatic resumable steps. `summarizer` and
-`zotero` are manual pipeline modules triggered by explicit user action.
+`locator` through `evaluator` are automatic resumable steps. `summarizer` is
+manual by default, but the background worker can run it when `yolo_default` is
+enabled. `zotero` is always triggered by explicit user confirmation.
 
 ## Worker
 
@@ -66,7 +67,10 @@ Returns background worker status:
 ### `POST /worker/start`
 
 Starts the FastAPI-process background queue worker. The worker polls the local
-SQLite queue and runs automatic pipeline steps for runnable tasks.
+SQLite queue and runs automatic pipeline steps for runnable tasks. If
+`yolo_default` is enabled, tasks that reach `Ready for report` continue through
+report generation until budget checks pause them or they become ready for
+export.
 
 ### `POST /worker/stop`
 
@@ -79,8 +83,8 @@ the polling worker alive. This is useful for manual batch advancement from the
 task list UI.
 
 Worker execution uses settings-derived stage semaphores so locating/downloading,
-parsing/evaluation, and future summarization work can respect configured
-concurrency limits.
+parsing/evaluation, and YOLO summarization work respect configured concurrency
+limits.
 
 ## Settings
 
