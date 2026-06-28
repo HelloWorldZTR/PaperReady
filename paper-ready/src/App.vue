@@ -16,6 +16,7 @@ const loading = ref(false);
 const errorMessage = ref("");
 const pipeline = ref([]);
 const workerStatus = ref({ running: false, last_run_count: 0, last_error: null });
+const zoteroStatus = ref({ available: false, connector_url: "", selected: null, error: null });
 const exportPreview = ref([]);
 const exportOptions = ref({ include_pdf: true, include_notes: true, category: null });
 const settings = ref({
@@ -35,6 +36,8 @@ const settings = ref({
   budget_overflow_behavior: "pause",
   language_preference: "en",
   zotero_bridge_url: null,
+  zotero_connector_url: "http://127.0.0.1:23119",
+  zotero_export_mode: "prepare",
   report_types: {},
   prompt_templates: {},
 });
@@ -52,11 +55,26 @@ async function initialize() {
     settings.value = await api("/settings");
     pipeline.value = await api("/pipeline");
     workerStatus.value = await api("/worker");
+    await probeZotero();
     await refreshTasks();
   } catch (error) {
     errorMessage.value = `Backend unavailable: ${error.message}`;
   } finally {
     loading.value = false;
+  }
+}
+
+/** Probe Zotero Connector readiness without writing to the library. */
+async function probeZotero() {
+  try {
+    zoteroStatus.value = await api("/zotero/status");
+  } catch (error) {
+    zoteroStatus.value = {
+      available: false,
+      connector_url: settings.value.zotero_connector_url || "",
+      selected: null,
+      error: error.message,
+    };
   }
 }
 
@@ -250,6 +268,7 @@ async function confirmExportSelected() {
     });
     selectedTaskIds.value = new Set();
     exportPreview.value = [];
+    await probeZotero();
   } catch (error) {
     errorMessage.value = error.message;
   } finally {
@@ -327,11 +346,13 @@ onMounted(initialize);
           :selected-task-ids="selectedTaskIds"
           :tasks="tasks"
           :worker-status="workerStatus"
+          :zotero-status="zoteroStatus"
           :export-preview="exportPreview"
           :export-options="exportOptions"
           @cancel-export-preview="cancelExportPreview"
           @confirm-export-selected="confirmExportSelected"
           @preview-export-selected="previewExportSelected"
+          @probe-zotero="probeZotero"
           @generate-report="generateReport"
           @override-recommendation="overrideRecommendation"
           @process-all="processAll"

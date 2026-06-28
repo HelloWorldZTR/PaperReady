@@ -29,7 +29,7 @@ from .services import (
     resolve_task,
     retry_task,
 )
-from .modules.zotero import build_zotero_payload
+from .modules.zotero import build_zotero_payload, probe_zotero
 from .worker import worker_manager
 
 
@@ -209,3 +209,9 @@ def post_export_preview(request: ExportPreviewRequest) -> list[dict]:
             )
         )
     return payloads
+
+
+@app.get("/zotero/status")
+def get_zotero_status() -> dict:
+    """Probe Zotero Connector readiness without writing to the library."""
+    return probe_zotero(database.get_settings())

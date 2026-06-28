@@ -125,6 +125,22 @@ date as the handoff source for future implementation.
   toggles.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Zotero Connector Confirmation Flow
+
+- [x] Add Zotero connector settings for connector URL and export mode.
+- [x] Add `GET /zotero/status` to probe connector ping and selected collection
+  without writing to Zotero.
+- [x] Add connector export mode that imports RIS through Zotero Desktop
+  Connector after user confirmation.
+- [x] Keep `prepare` as the default export mode to avoid accidental library
+  writes.
+- [x] Keep bridge/connector failures recoverable by leaving tasks ready for
+  export instead of marking them completed.
+- [x] Surface connector readiness in the task-list export preview with a
+  manual Probe Zotero action.
+- [x] Add tests for connector probe, connector import success, and status API.
+- [ ] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -171,6 +187,7 @@ date as the handoff source for future implementation.
 - `68df58e` - Add background worker and PDF cache.
 - `705cb9d` - Add metadata lookup and disambiguation.
 - `0552bfe` - Add URL PDF discovery and export preview.
+- Pending - Zotero connector confirmation flow.
 
 ## Verification
 

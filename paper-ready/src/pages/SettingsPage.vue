@@ -179,6 +179,26 @@ function updateJsonField(key, value) {
         </select>
       </label>
       <label>
+        Zotero export mode
+        <select
+          :value="settings.zotero_export_mode"
+          @change="updateField('zotero_export_mode', $event.target.value)"
+        >
+          <option value="prepare">Prepare only</option>
+          <option value="bridge">Custom bridge URL</option>
+          <option value="connector">Zotero Connector</option>
+        </select>
+      </label>
+      <label>
+        Zotero connector URL
+        <input
+          :value="settings.zotero_connector_url"
+          type="text"
+          placeholder="http://127.0.0.1:23119"
+          @input="updateField('zotero_connector_url', $event.target.value)"
+        />
+      </label>
+      <label>
         Zotero bridge URL
         <input
           :value="settings.zotero_bridge_url"

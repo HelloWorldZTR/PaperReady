@@ -152,6 +152,8 @@ class AppSettings(BaseModel):
     budget_overflow_behavior: str = "pause"
     language_preference: str = "en"
     zotero_bridge_url: str | None = None
+    zotero_connector_url: str = "http://127.0.0.1:23119"
+    zotero_export_mode: str = "prepare"
     report_types: dict[str, list[str]] = Field(
         default_factory=lambda: {
             "Quick Brief": ["summary", "main_contribution", "relevance"],

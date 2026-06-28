@@ -4,6 +4,7 @@ from paper_ready_backend.models import AppSettings, ReportRequest, TaskRetryRequ
 from paper_ready_backend.modules import downloader
 from paper_ready_backend.modules import locator
 from paper_ready_backend.modules.parser import parse_text_sections
+from paper_ready_backend.modules import zotero
 from paper_ready_backend.modules.zotero import build_zotero_payload, export_to_zotero
 from paper_ready_backend.services import (
     create_tasks,
@@ -180,3 +181,44 @@ def test_zotero_preview_can_hide_pdf_and_notes(tmp_path, monkeypatch) -> None:
     )
     assert payload["attachments"] == []
     assert payload["notes"] == []
+
+
+def test_zotero_connector_probe_reports_selected_collection(monkeypatch) -> None:
+    """Zotero connector probe reads ping and selected target without writes."""
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"libraryID": 1, "collection": "abc"}
+
+    monkeypatch.setattr(zotero.httpx, "get", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(zotero.httpx, "post", lambda *_args, **_kwargs: Response())
+    status = zotero.probe_zotero(AppSettings())
+    assert status["available"] is True
+    assert status["selected"]["collection"] == "abc"
+
+
+def test_zotero_connector_import_success(tmp_path, monkeypatch) -> None:
+    """Connector mode imports RIS and marks the task exported on success."""
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    monkeypatch.setattr(zotero.httpx, "post", lambda *_args, **_kwargs: Response())
+    task = process_task(create_tasks(["2401.12345"])[0], AppSettings())
+    exported = export_to_zotero(
+        task,
+        "Brief Reading",
+        AppSettings(zotero_export_mode="connector"),
+    )
+    assert exported.status == "Exported"
+    assert exported.export_status == "Connector imported: Brief Reading"

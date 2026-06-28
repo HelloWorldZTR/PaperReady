@@ -9,6 +9,7 @@ const props = defineProps({
   selectedTaskIds: { type: Object, required: true },
   tasks: { type: Array, required: true },
   workerStatus: { type: Object, required: true },
+  zoteroStatus: { type: Object, required: true },
   exportPreview: { type: Array, required: true },
   exportOptions: { type: Object, required: true },
 });
@@ -18,6 +19,7 @@ const emit = defineEmits([
   "generate-report",
   "override-recommendation",
   "preview-export-selected",
+  "probe-zotero",
   "process-all",
   "refresh",
   "resolve-task",
@@ -101,9 +103,13 @@ function candidates(task) {
       <div class="export-preview-header">
         <div>
           <strong>Zotero export preview</strong>
-          <span>{{ exportPreview.length }} items ready for confirmation</span>
+          <span>
+            {{ exportPreview.length }} items · mode {{ settings.zotero_export_mode }} ·
+            {{ zoteroStatus.available ? "connector ready" : "connector not ready" }}
+          </span>
         </div>
         <div class="actions">
+          <button type="button" @click="emit('probe-zotero')">Probe Zotero</button>
           <label class="inline-check">
             <input
               :checked="exportOptions.include_pdf"

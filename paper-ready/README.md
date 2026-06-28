@@ -98,4 +98,6 @@ locator, evaluator, and summarizer calls. Local PDF text extraction uses
 to an optional `zotero_bridge_url`. The Tasks page can resolve locator
 candidates, preview Zotero payloads before confirming export, run one queue
 pass, or start a background worker; arXiv and discovered free PDFs are cached
-under the local data directory when download succeeds.
+under the local data directory when download succeeds. Zotero export defaults to
+prepare-only mode; switch `zotero_export_mode` to `connector` to import through
+Zotero Desktop Connector after the preview confirmation step.

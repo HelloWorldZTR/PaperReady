@@ -109,6 +109,8 @@ Replaces persisted settings. Important fields include:
 - `budget_overflow_behavior`
 - `language_preference`
 - `zotero_bridge_url`
+- `zotero_connector_url`
+- `zotero_export_mode`
 - `report_types`
 - `prompt_templates`
 
@@ -237,6 +239,24 @@ Both fields are optional. Defaults come from settings.
 
 ## Zotero Export
 
+### `GET /zotero/status`
+
+Probes Zotero Desktop Connector readiness without writing to the library.
+
+Response:
+
+```json
+{
+  "available": true,
+  "connector_url": "http://127.0.0.1:23119",
+  "selected": {
+    "libraryID": 1,
+    "collection": "..."
+  },
+  "error": null
+}
+```
+
 ### `POST /export/zotero/preview`
 
 Returns the connector-style Zotero payloads that would be exported, without
@@ -265,6 +285,16 @@ does not write to Zotero SQLite, delete items, or merge duplicates.
 If `zotero_bridge_url` is configured, the backend sends a connector-style JSON
 payload to that URL. Otherwise it prepares the payload locally and records the
 task as exported.
+
+Export behavior is controlled by `zotero_export_mode`:
+
+- `prepare`: record the confirmed payload locally without writing Zotero.
+- `bridge`: send the JSON payload to `zotero_bridge_url`.
+- `connector`: import RIS through Zotero Desktop Connector at
+  `zotero_connector_url`.
+
+Connector/bridge failures leave the task `Ready for export` so the user can fix
+the connection and retry.
 
 Request:
 
