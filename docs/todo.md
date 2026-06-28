@@ -22,7 +22,7 @@ date as the handoff source for future implementation.
 - [x] Document backend APIs in `docs/api.md`.
 - [x] Document run/build steps in `paper-ready/README.md`.
 - [x] Add pytest coverage for important backend functionality.
-- [ ] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks and record the milestone commit ID here.
 
 ## Backend Tasks
 
@@ -59,11 +59,11 @@ date as the handoff source for future implementation.
 - [x] Add doc comments to primary Rust commands.
 - [x] Use pytest in the `generic` conda environment for backend tests.
 - [x] Update `requirements.txt` whenever Python dependencies change.
-- [ ] Commit each major milestone and record the commit hash below.
+- [x] Commit each major milestone and record the commit hash below.
 
 ## Milestone Commits
 
-- Pending.
+- `072e323` - Implement local-first MVP skeleton.
 
 ## Verification
 
