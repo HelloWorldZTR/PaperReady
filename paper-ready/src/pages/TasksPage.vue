@@ -25,6 +25,7 @@ const emit = defineEmits([
   "resolve-task",
   "retry-task",
   "run-worker-once",
+  "set-selected-yolo",
   "set-worker-running",
   "toggle-selection",
 ]);
@@ -59,6 +60,17 @@ function canGenerate(task) {
 /** Return candidate records for a disambiguation task. */
 function candidates(task) {
   return task.paper?.candidate_records || [];
+}
+
+/** Return compact text for task-level YOLO state. */
+function yoloLabel(task) {
+  if (task.yolo_enabled === true) {
+    return "YOLO on";
+  }
+  if (task.yolo_enabled === false) {
+    return "YOLO off";
+  }
+  return props.settings.yolo_default ? "YOLO default on" : "YOLO default off";
 }
 
 /** Open the inline metadata editor for one task row. */
@@ -130,6 +142,20 @@ function saveMetadata(task) {
         </button>
         <button type="button" :disabled="loading" @click="emit('run-worker-once')">
           Run once
+        </button>
+        <button
+          type="button"
+          :disabled="loading || selectedCount === 0"
+          @click="emit('set-selected-yolo', true)"
+        >
+          YOLO on
+        </button>
+        <button
+          type="button"
+          :disabled="loading || selectedCount === 0"
+          @click="emit('set-selected-yolo', false)"
+        >
+          YOLO off
         </button>
         <button
           type="button"
@@ -231,7 +257,7 @@ function saveMetadata(task) {
             </td>
             <td class="paper-cell">
               <strong>{{ task.paper?.title || task.raw_input }}</strong>
-              <small>{{ task.input_type }} · {{ task.status }}</small>
+              <small>{{ task.input_type }} · {{ task.status }} · {{ yoloLabel(task) }}</small>
               <button
                 type="button"
                 class="link-button"

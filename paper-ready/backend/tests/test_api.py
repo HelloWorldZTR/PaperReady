@@ -105,3 +105,26 @@ def test_worker_yolo_generates_report(tmp_path, monkeypatch) -> None:
         assert task["status"] == "Ready for export"
         assert task["report_status"] == "Generated"
         assert task["report"]["report_type"] == "Quick Brief"
+
+
+def test_task_yolo_override_controls_worker(tmp_path, monkeypatch) -> None:
+    """Task-level YOLO can opt a row into unattended report generation."""
+    monkeypatch.setenv("PAPERREADY_DB_PATH", str(tmp_path / "paperready.db"))
+    monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(
+        downloader,
+        "_download_pdf",
+        lambda _url, path: path.write_bytes(b"%PDF-1.4") and None,
+    )
+    with TestClient(app) as client:
+        created = client.post("/tasks", json={"inputs": ["2401.12345"]})
+        task_id = created.json()[0]["task_id"]
+        toggled = client.post(f"/tasks/{task_id}/yolo", json={"enabled": True})
+        assert toggled.status_code == 200
+        assert toggled.json()["yolo_enabled"] is True
+
+        worker = client.post("/worker/run-once")
+        assert worker.status_code == 200
+        task = client.get("/tasks").json()[0]
+        assert task["status"] == "Ready for export"
+        assert task["report_status"] == "Generated"

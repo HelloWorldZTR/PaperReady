@@ -67,10 +67,10 @@ Returns background worker status:
 ### `POST /worker/start`
 
 Starts the FastAPI-process background queue worker. The worker polls the local
-SQLite queue and runs automatic pipeline steps for runnable tasks. If
-`yolo_default` is enabled, tasks that reach `Ready for report` continue through
-report generation until budget checks pause them or they become ready for
-export.
+SQLite queue and runs automatic pipeline steps for runnable tasks. If global
+`yolo_default` or the task-level YOLO override is enabled, tasks that reach
+`Ready for report` continue through report generation until budget checks pause
+them or they become ready for export.
 
 ### `POST /worker/stop`
 
@@ -202,6 +202,17 @@ Edited metadata request:
 
 Resolving a task clears downstream PDF, parser, evaluation, and report outputs
 so the pipeline can continue from the selected identity.
+
+### `POST /tasks/{task_id}/yolo`
+
+Sets or clears the task-level YOLO override. `null` means the task follows the
+global `yolo_default`; `true` and `false` explicitly override it.
+
+Request:
+
+```json
+{ "enabled": true }
+```
 
 ### `POST /tasks/process-all`
 

@@ -166,6 +166,18 @@ date as the handoff source for future implementation.
 - [x] Add backend coverage for edited metadata resolution.
 - [x] Run tests/build checks and record the milestone commit ID here.
 
+## Current Milestone: Per-Task YOLO Controls
+
+- [x] Add a task-level YOLO override that can follow the global default or
+  explicitly enable/disable unattended report generation.
+- [x] Let the worker prefer task-level YOLO settings over `yolo_default`.
+- [x] Add `POST /tasks/{task_id}/yolo` for task-level YOLO updates.
+- [x] Add task-list controls to enable or disable YOLO for selected rows.
+- [x] Document task-level YOLO behavior in `docs/api.md` and
+  `paper-ready/README.md`.
+- [x] Add API coverage for task-level YOLO worker behavior.
+- [x] Run tests/build checks and record the milestone commit ID here.
+
 ## Backend Tasks
 
 - [x] Define core data objects from the PRD: `PaperTask`, `PaperRecord`,
@@ -215,6 +227,7 @@ date as the handoff source for future implementation.
 - `8259ee1` - Add Zotero connector confirmation flow.
 - `7f61144` - Add YOLO worker report generation.
 - `33e7701` - Add metadata editing UI.
+- `TBD` - Add per-task YOLO controls.
 
 ## Verification
 

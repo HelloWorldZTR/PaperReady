@@ -200,6 +200,27 @@ async function retryTask(task, step) {
   }
 }
 
+/** Set task-level YOLO override for all selected rows. */
+async function setSelectedYolo(enabled) {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    await Promise.all(
+      [...selectedTaskIds.value].map((taskId) =>
+        api(`/tasks/${taskId}/yolo`, {
+          method: "POST",
+          body: JSON.stringify({ enabled }),
+        }),
+      ),
+    );
+    await refreshTasks();
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    loading.value = false;
+  }
+}
+
 /** Resolve a task with a candidate selection or user-edited metadata. */
 async function resolveTask(task, resolution) {
   loading.value = true;
@@ -364,6 +385,7 @@ onMounted(initialize);
           @resolve-task="resolveTask"
           @retry-task="retryTask"
           @run-worker-once="runWorkerOnce"
+          @set-selected-yolo="setSelectedYolo"
           @set-worker-running="setWorkerRunning"
           @toggle-selection="toggleSelection"
         />

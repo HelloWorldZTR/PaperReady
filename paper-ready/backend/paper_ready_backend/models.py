@@ -130,6 +130,7 @@ class PaperTask(BaseModel):
     report: ReportRecord | None = None
     export_status: str = "Not exported"
     failure_reason: str | None = None
+    yolo_enabled: bool | None = None
     created_at: str = Field(default_factory=utc_now)
     updated_at: str = Field(default_factory=utc_now)
 
@@ -190,6 +191,10 @@ class TaskRetryRequest(BaseModel):
 class TaskResolveRequest(BaseModel):
     candidate_index: int | None = None
     paper: PaperRecord | None = None
+
+
+class TaskYoloRequest(BaseModel):
+    enabled: bool | None = None
 
 
 class ExportRequest(BaseModel):

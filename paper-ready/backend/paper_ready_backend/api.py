@@ -18,6 +18,7 @@ from .models import (
     TaskCreateRequest,
     TaskResolveRequest,
     TaskRetryRequest,
+    TaskYoloRequest,
 )
 from .services import (
     create_tasks,
@@ -28,6 +29,7 @@ from .services import (
     process_task,
     resolve_task,
     retry_task,
+    set_task_yolo,
 )
 from .modules.zotero import build_zotero_payload, probe_zotero
 from .worker import worker_manager
@@ -148,6 +150,13 @@ def post_retry_task(task_id: str, request: TaskRetryRequest) -> PaperTask:
 def post_resolve_task(task_id: str, request: TaskResolveRequest) -> PaperTask:
     """Resolve one task that is paused for user disambiguation."""
     task = resolve_task(_load_task(task_id), request)
+    return database.save_task(task)
+
+
+@app.post("/tasks/{task_id}/yolo", response_model=PaperTask)
+def post_task_yolo(task_id: str, request: TaskYoloRequest) -> PaperTask:
+    """Set or clear the task-level YOLO override."""
+    task = set_task_yolo(_load_task(task_id), request)
     return database.save_task(task)
 
 

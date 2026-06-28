@@ -91,7 +91,7 @@ class WorkerManager:
 def _is_runnable(task: PaperTask, settings: AppSettings) -> bool:
     """Return whether automatic processing may advance this task."""
     if task.status == "Ready for report":
-        return settings.yolo_default
+        return _task_yolo_enabled(task, settings)
     return task.status not in AUTO_PAUSE_STATUSES
 
 
@@ -107,7 +107,7 @@ def _maybe_generate_yolo_report(
     task: PaperTask, settings: AppSettings, limiter
 ) -> PaperTask:
     """Generate the report stage when unattended YOLO mode is enabled."""
-    if not settings.yolo_default or task.status != "Ready for report":
+    if not _task_yolo_enabled(task, settings) or task.status != "Ready for report":
         return task
     report_type = (
         task.evaluation.suggested_report_type
@@ -120,6 +120,13 @@ def _maybe_generate_yolo_report(
             settings,
             ReportRequest(report_type=report_type),
         )
+
+
+def _task_yolo_enabled(task: PaperTask, settings: AppSettings) -> bool:
+    """Return task-level YOLO override, falling back to global default."""
+    if task.yolo_enabled is not None:
+        return task.yolo_enabled
+    return settings.yolo_default
 
 
 def _stage_limiters(settings: AppSettings) -> dict:

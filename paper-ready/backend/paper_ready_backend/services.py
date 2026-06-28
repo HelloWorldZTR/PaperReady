@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from .models import AppSettings, PaperTask, TaskResolveRequest, TaskRetryRequest
+from .models import (
+    AppSettings,
+    PaperTask,
+    TaskResolveRequest,
+    TaskRetryRequest,
+    TaskYoloRequest,
+)
 from .modules.downloader import acquire_pdf
 from .modules.evaluator import evaluate_task, override_recommendation
 from .modules.input_classifier import create_tasks, detect_input_type
@@ -36,4 +42,16 @@ def resolve_task(task: PaperTask, request: TaskResolveRequest) -> PaperTask:
     if request.candidate_index is not None:
         return resolve_candidate(task, request.candidate_index)
     task.failure_reason = "No candidate index or paper metadata provided"
+    return task
+
+
+def set_task_yolo(task: PaperTask, request: TaskYoloRequest) -> PaperTask:
+    """Set or clear the task-level YOLO override."""
+    task.yolo_enabled = request.enabled
+    if task.status == "Ready for report":
+        task.next_action = (
+            "Run worker to generate report"
+            if request.enabled
+            else "Generate report"
+        )
     return task
