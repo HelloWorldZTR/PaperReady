@@ -9,6 +9,7 @@ from .models import (
     PaperTask,
     PdfAttachRequest,
     PdfRecord,
+    ParsedPaper,
     TaskResolveRequest,
     TaskRetryRequest,
     TaskYoloRequest,
@@ -68,6 +69,33 @@ def attach_local_pdf(task: PaperTask, request: PdfAttachRequest) -> PaperTask:
     task.failure_reason = None
     task.next_action = "Parse PDF"
     return task
+
+
+def skip_pdf(task: PaperTask, settings: AppSettings) -> PaperTask:
+    """Continue one task as metadata-only when PDF acquisition or parsing is skipped."""
+    if not task.paper:
+        task.failure_reason = "Resolve paper identity before skipping PDF"
+        task.next_action = "Resolve identity"
+        return task
+    task.pdf = PdfRecord(
+        paper_id=task.paper.paper_id,
+        source_type="metadata_only",
+        status="PDF unavailable",
+        failure_reason="User skipped PDF processing.",
+    )
+    task.pdf_status = "PDF unavailable"
+    task.parsed = ParsedPaper(
+        paper_id=task.paper.paper_id,
+        sections={"abstract": task.paper.abstract or ""},
+        parse_quality="metadata_only",
+    )
+    task.parser_status = "Metadata only"
+    task.report = None
+    task.report_status = "Not requested"
+    task.failure_reason = None
+    task.status = "Evaluating"
+    task.next_action = "Evaluate paper"
+    return evaluate_task(task, settings)
 
 
 def resolve_task(task: PaperTask, request: TaskResolveRequest) -> PaperTask:

@@ -18,6 +18,20 @@ Returns backend readiness.
 Returns the active SQLite path, task count, and current settings. This is for
 local diagnostics only.
 
+Current response also includes `data_dir` and `cache_size_bytes` so the Settings
+UI can show local cache and storage diagnostics.
+
+### `POST /debug/cache/clear`
+
+Clears PaperReady-owned local cache files. Request:
+
+```json
+{ "mode": "failed" }
+```
+
+Allowed modes are `failed`, `exported`, and `all`. The cleanup only removes
+files under PaperReady's configured data directory and does not touch Zotero.
+
 ## Pipeline
 
 ### `GET /pipeline`
@@ -92,11 +106,20 @@ limits.
 
 Returns persisted app settings, creating defaults on first use.
 
+### `GET /settings/prompt-defaults`
+
+Returns backend-owned default prompt templates for the prompt editor. Templates
+are returned before variable rendering and may include tokens such as
+`{{title}}`, `{{abstract}}`, `{{sections}}`, `{{references}}`,
+`{{user_research_context}}`, and `{{value_recommendation}}`.
+
 ### `PUT /settings`
 
 Replaces persisted settings. Important fields include:
 
 - `research_interests`
+- `research_tags`
+- `default_start_page`
 - `batch_budget`
 - `daily_budget`
 - `monthly_budget`
@@ -115,6 +138,10 @@ Replaces persisted settings. Important fields include:
 - `zotero_bridge_url`
 - `zotero_connector_url`
 - `zotero_export_mode`
+- `zotero_default_collection`
+- `zotero_include_pdf_by_default`
+- `zotero_include_notes_by_default`
+- `zotero_collection_mapping`
 - `report_types`
 - `prompt_templates`
 
@@ -138,9 +165,17 @@ Request:
 
 Response: an array of `PaperTask` objects.
 
+Tasks created by one request share `batch_id` and `batch_label`, which the Home
+page uses to show recent import batches.
+
 ### `GET /tasks`
 
 Lists durable queue tasks sorted by creation time.
+
+### `DELETE /tasks/{task_id}`
+
+Removes one task from the local queue and returns the remaining task list. This
+is used by the article-level task center's remove action.
 
 ### `POST /tasks/{task_id}/process`
 
@@ -186,6 +221,13 @@ Request:
 ```json
 { "path": "/Users/example/Papers/paper.pdf" }
 ```
+
+### `POST /tasks/{task_id}/skip-pdf`
+
+Continues a resolved task as metadata-only after the user chooses to skip PDF
+download or parsing. This records `PDF unavailable`, creates a metadata-only
+parsed representation, and advances evaluation so the task can still reach
+report generation.
 
 ### `POST /tasks/{task_id}/resolve`
 
@@ -285,6 +327,11 @@ Response:
 }
 ```
 
+### `POST /zotero/test-payload`
+
+Returns a safe sample Zotero payload for Settings diagnostics. It does not write
+to Zotero.
+
 ### `POST /export/zotero/preview`
 
 Returns the connector-style Zotero payloads that would be exported, without
@@ -321,6 +368,10 @@ Export behavior is controlled by `zotero_export_mode`:
 - `connector`: import RIS through Zotero Desktop Connector at
   `zotero_connector_url`.
 
+Requests may include `export_mode` to override the persisted Zotero export mode
+for this confirmation only. Allowed values are `prepare`, `connector`, and
+`bridge`.
+
 Connector/bridge failures leave the task `Ready for export` so the user can fix
 the connection and retry.
 
@@ -331,7 +382,8 @@ Request:
   "task_ids": ["task_abc123"],
   "include_pdf": true,
   "include_notes": true,
-  "category": "Brief Reading"
+  "category": "Brief Reading",
+  "export_mode": "prepare"
 }
 ```
 

@@ -1,43 +1,123 @@
 <script setup>
-import { computed, reactive } from "vue";
-import { STRINGS } from "../strings";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { computed, reactive, ref, watch } from "vue";
 
 const props = defineProps({
+  batchFilter: { type: String, default: null },
+  exportOptions: { type: Object, required: true },
+  exportPreview: { type: Array, required: true },
   loading: Boolean,
   pipeline: { type: Array, required: true },
-  settings: { type: Object, required: true },
   selectedTaskIds: { type: Object, required: true },
+  settings: { type: Object, required: true },
   tasks: { type: Array, required: true },
   workerStatus: { type: Object, required: true },
   zoteroStatus: { type: Object, required: true },
-  exportPreview: { type: Array, required: true },
-  exportOptions: { type: Object, required: true },
 });
 const emit = defineEmits([
   "attach-pdf",
+  "clear-batch-filter",
   "cancel-export-preview",
   "confirm-export-selected",
   "generate-report",
+  "generate-selected-reports",
+  "open-home",
+  "open-settings",
   "override-recommendation",
   "preview-export-selected",
   "probe-zotero",
   "process-all",
   "refresh",
+  "remove-task",
+  "remove-selected-tasks",
   "resolve-task",
+  "retry-failed-tasks",
   "retry-task",
   "run-worker-once",
   "set-selected-yolo",
   "set-worker-running",
+  "skip-pdf",
   "toggle-selection",
 ]);
 
+const activeTab = ref("current");
+const inspectedTaskId = ref(null);
+const showProgressDetails = ref(false);
+const pendingBulkReport = ref(false);
+const bulkReportType = ref(props.settings.default_report_type || "Quick Brief");
 const rowChoices = reactive({});
-const selectedCount = computed(() => props.selectedTaskIds.size);
-const totalCost = computed(() =>
-  props.tasks.reduce((sum, task) => sum + (task.estimated_cost || 0), 0).toFixed(4),
+
+const importedTasks = computed(() =>
+  props.tasks.filter((task) => task.status === "Exported"),
 );
-const reportTypes = computed(() => Object.keys(props.settings.report_types || {}));
+const currentTasks = computed(() =>
+  props.tasks.filter((task) => task.status !== "Exported"),
+);
+const activeBatch = computed(() => {
+  if (!props.batchFilter) return null;
+  const batchTasks = props.tasks.filter(
+    (task) => (task.batch_id || task.task_id) === props.batchFilter,
+  );
+  if (!batchTasks.length) return null;
+  return {
+    id: props.batchFilter,
+    label: batchTasks[0].batch_label || batchTasks[0].paper?.title || batchTasks[0].raw_input,
+    count: batchTasks.length,
+  };
+});
+const visibleTasks = computed(() =>
+  (activeTab.value === "imported" ? importedTasks.value : currentTasks.value).filter(
+    (task) => !props.batchFilter || (task.batch_id || task.task_id) === props.batchFilter,
+  ),
+);
+const selectedCount = computed(() => props.selectedTaskIds.size);
+const selectedTasks = computed(() =>
+  props.tasks.filter((task) => props.selectedTaskIds.has(task.task_id)),
+);
+const inspectedTask = computed(() => {
+  const id = inspectedTaskId.value || selectedTasks.value[0]?.task_id;
+  return props.tasks.find((task) => task.task_id === id) || null;
+});
+const reportTypes = computed(() => {
+  const configured = Object.keys(props.settings.report_types || {});
+  return configured.length ? configured : ["Quick Brief", "Standard Report", "Detailed Report"];
+});
 const retrySteps = computed(() => props.pipeline.filter((step) => step.key !== "zotero"));
+const totalProgress = computed(() => {
+  if (!props.tasks.length) {
+    return { done: 0, total: 0, percent: 0 };
+  }
+  const done = props.tasks.filter((task) => task.status === "Exported").length;
+  return {
+    done,
+    total: props.tasks.length,
+    percent: Math.round((done / props.tasks.length) * 100),
+  };
+});
+const totalCost = computed(() =>
+  props.tasks.reduce((sum, task) => sum + (task.estimated_cost || 0), 0),
+);
+const failedCount = computed(() =>
+  props.tasks.filter((task) => task.status === "Failed" || task.status.includes("failed")).length,
+);
+const reviewCount = computed(() =>
+  props.tasks.filter((task) => task.status === "Needs disambiguation" || task.status === "Needs review").length,
+);
+const modelCallStatus = computed(() => {
+  const active = props.tasks.find((task) =>
+    ["Locating", "Evaluating", "Summarizing"].includes(task.status),
+  );
+  if (!active) return "空闲";
+  return `${active.status}: ${active.paper?.title || active.raw_input}`;
+});
+
+watch(
+  () => inspectedTask.value?.task_id,
+  (taskId) => {
+    inspectedTaskId.value = taskId || null;
+  },
+  { immediate: true },
+);
 
 /** Return mutable row choices with sensible defaults. */
 function choices(task) {
@@ -54,33 +134,78 @@ function choices(task) {
   return rowChoices[task.task_id];
 }
 
-/** Return true when a task can generate a report from the table. */
+/** Return whether the row can start report generation. */
 function canGenerate(task) {
   return task.status === "Ready for report" || task.status === "Needs review";
 }
 
 /** Return generated report sections in display order. */
 function reportSections(task) {
-  return Object.entries(task.report?.sections || {});
+  return Object.entries(task?.report?.sections || {});
 }
 
 /** Return candidate records for a disambiguation task. */
 function candidates(task) {
-  return task.paper?.candidate_records || [];
+  return task?.paper?.candidate_records || [];
 }
 
 /** Return compact text for task-level YOLO state. */
 function yoloLabel(task) {
-  if (task.yolo_enabled === true) {
-    return "YOLO on";
-  }
-  if (task.yolo_enabled === false) {
-    return "YOLO off";
-  }
+  if (task.yolo_enabled === true) return "YOLO on";
+  if (task.yolo_enabled === false) return "YOLO off";
   return props.settings.yolo_default ? "YOLO default on" : "YOLO default off";
 }
 
-/** Open the inline metadata editor for one task row. */
+/** Convert task status into a visual progress percentage. */
+function progressPercent(task) {
+  const order = [
+    "Queued",
+    "Locating",
+    "Located",
+    "PDF ready",
+    "Parsing",
+    "Evaluating",
+    "Ready for report",
+    "Summarizing",
+    "Ready for export",
+    "Exported",
+  ];
+  if (task.status === "Budget paused") return 70;
+  if (task.status === "Needs disambiguation" || task.status === "Needs review") return 35;
+  if (task.status === "Failed" || task.status === "Parse failed") return 45;
+  const index = Math.max(order.indexOf(task.status), 0);
+  return Math.round((index / (order.length - 1)) * 100);
+}
+
+/** Return the recommended reading level shown in the list. */
+function recommendation(task) {
+  return task.evaluation?.value_recommendation || task.evaluation_status || "待评估";
+}
+
+/** Return the planned or generated report complexity. */
+function reportComplexity(task) {
+  return (
+    task.report?.report_type ||
+    task.evaluation?.suggested_report_type ||
+    choices(task).reportType ||
+    props.settings.default_report_type
+  );
+}
+
+/** Return a Zotero-facing state string. */
+function zoteroState(task) {
+  if (task.status === "Exported") return "已导入";
+  if (task.export_status && task.export_status !== "Not exported") return task.export_status;
+  if (task.status === "Ready for export") return "待导出";
+  return "未就绪";
+}
+
+/** Open the inspector for one task. */
+function inspect(task) {
+  inspectedTaskId.value = task.task_id;
+}
+
+/** Open the metadata editor for the inspected task. */
 function startEditMetadata(task) {
   const paper = task.paper || {};
   choices(task).metadataDraft = {
@@ -96,7 +221,7 @@ function startEditMetadata(task) {
   choices(task).editingMetadata = true;
 }
 
-/** Convert the row editor fields into a PaperRecord-shaped payload. */
+/** Convert the metadata editor draft into a PaperRecord-shaped payload. */
 function buildEditedPaper(task) {
   const draft = choices(task).metadataDraft || {};
   const year = Number.parseInt(draft.year, 10);
@@ -127,305 +252,610 @@ function saveMetadata(task) {
   emit("resolve-task", task, buildEditedPaper(task));
   choices(task).editingMetadata = false;
 }
+
+/** Render pipeline stages by combining backend step descriptors and task status fields. */
+function pipelineRows(task) {
+  const rows = [
+    ["收集来源", task.input_type ? "已完成" : "等待中"],
+    ["解析文件与链接", task.locator_status],
+    ["匹配论文元数据", task.paper ? "已完成" : task.locator_status],
+    ["去重与消歧", candidates(task).length ? "需复核" : task.paper ? "已完成" : "等待中"],
+    ["获取 PDF", task.pdf_status],
+    ["解析 PDF", task.parser_status],
+    ["论文筛选与分类", task.evaluation?.value_recommendation || task.evaluation_status],
+    ["生成阅读报告", task.report_status],
+    ["写入 Zotero", zoteroState(task)],
+  ];
+  return rows.map(([label, status]) => ({ label, status: status || "等待中" }));
+}
+
+/** Choose status class for row icon and badges. */
+function statusClass(task) {
+  if (task.status === "Exported") return "ok";
+  if (task.status === "Failed" || task.status === "Parse failed") return "bad";
+  if (task.status.includes("Needs") || task.status === "Budget paused") return "warn";
+  if (task.status.includes("ing")) return "active";
+  return "idle";
+}
+
+/** Open a cached or user-provided PDF in the system viewer. */
+async function openPdf(task) {
+  if (task.pdf?.local_path) {
+    await openPath(task.pdf.local_path);
+  }
+}
+
+/** Generate reports after the in-app confirmation sheet is accepted. */
+function confirmGenerateSelected() {
+  pendingBulkReport.value = false;
+  emit("generate-selected-reports", { reportType: bulkReportType.value });
+}
 </script>
 
 <template>
-  <section class="page-card">
-    <header class="page-header">
-      <div>
-        <h2>{{ STRINGS.tasks.title }}</h2>
-        <p>
-          <strong>{{ tasks.length }}</strong> tasks · {{ selectedCount }} selected · ${{
-            totalCost
-          }} estimated · worker {{ workerStatus.running ? "running" : "idle" }}
+  <section class="tasks-page" :class="{ 'no-inspector': !inspectedTask }">
+    <div class="tasks-main">
+      <header class="task-toolbar">
+        <div class="segmented">
+          <button
+            type="button"
+            :class="{ active: activeTab === 'current' }"
+            @click="activeTab = 'current'"
+          >
+            当前任务
+          </button>
+          <button
+            type="button"
+            :class="{ active: activeTab === 'imported' }"
+            @click="activeTab = 'imported'"
+          >
+            已导入
+          </button>
+        </div>
+        <p class="queue-summary">
+          {{ currentTasks.length }} 当前 · {{ importedTasks.length }} 已导入 · Worker
+          {{ workerStatus.running ? "运行中" : "已停止" }}
         </p>
-      </div>
-      <div class="actions">
-        <button type="button" :disabled="loading" @click="emit('refresh')">
-          {{ STRINGS.tasks.refresh }}
-        </button>
-        <button type="button" :disabled="loading" @click="emit('process-all')">
-          {{ STRINGS.tasks.processAll }}
-        </button>
-        <button type="button" :disabled="loading" @click="emit('run-worker-once')">
-          Run once
-        </button>
+        <div class="toolbar-actions">
+          <button type="button" :disabled="loading" title="刷新" @click="emit('refresh')">
+            ↻
+          </button>
+          <button type="button" :disabled="loading" @click="emit('run-worker-once')">
+            运行
+          </button>
+          <button type="button" :disabled="loading" @click="emit('process-all')">
+            全部
+          </button>
+          <button
+            type="button"
+            :disabled="loading"
+            @click="emit('set-worker-running', !workerStatus.running)"
+          >
+            {{ workerStatus.running ? "停止" : "启动" }}
+          </button>
+          <button
+            type="button"
+            :disabled="loading || failedCount === 0"
+            @click="emit('retry-failed-tasks')"
+          >
+            重试失败
+          </button>
+          <button
+            type="button"
+            :disabled="loading || selectedCount === 0"
+            @click="emit('remove-selected-tasks')"
+          >
+            移除
+          </button>
+        </div>
+      </header>
+
+      <section v-if="activeBatch" class="filter-strip">
+        <span>筛选批次：{{ activeBatch.label }} · {{ activeBatch.count }} 篇</span>
+        <button type="button" @click="emit('clear-batch-filter')">显示全部</button>
+      </section>
+
+      <section v-if="selectedCount > 0" class="bulk-bar">
+        <strong>已选择 {{ selectedCount }} 篇文章</strong>
+        <label>
+          报告粒度
+          <select v-model="bulkReportType">
+            <option>不生成报告</option>
+            <option v-for="type in reportTypes" :key="type">{{ type }}</option>
+            <option>保留文章当前设置</option>
+          </select>
+        </label>
         <button
           type="button"
-          :disabled="loading || selectedCount === 0"
-          @click="emit('set-selected-yolo', true)"
+          :disabled="loading || bulkReportType === '不生成报告'"
+          @click="pendingBulkReport = true"
         >
-          YOLO on
-        </button>
-        <button
-          type="button"
-          :disabled="loading || selectedCount === 0"
-          @click="emit('set-selected-yolo', false)"
-        >
-          YOLO off
-        </button>
-        <button
-          type="button"
-          :disabled="loading"
-          @click="emit('set-worker-running', !workerStatus.running)"
-        >
-          {{ workerStatus.running ? "Stop worker" : "Start worker" }}
+          生成报告
         </button>
         <button
           type="button"
           class="primary"
-          :disabled="loading || selectedCount === 0"
+          :disabled="loading"
           @click="emit('preview-export-selected', exportOptions)"
         >
-          {{ STRINGS.tasks.export }}
+          导出到 Zotero
         </button>
-      </div>
-    </header>
+        <button type="button" :disabled="loading" @click="emit('set-selected-yolo', true)">
+          启用 YOLO
+        </button>
+        <button type="button" :disabled="loading" @click="emit('set-selected-yolo', false)">
+          禁用 YOLO
+        </button>
+      </section>
 
-    <section v-if="exportPreview.length" class="export-preview">
-      <div class="export-preview-header">
-        <div>
-          <strong>Zotero export preview</strong>
-          <span>
-            {{ exportPreview.length }} items · mode {{ settings.zotero_export_mode }} ·
-            {{ zoteroStatus.available ? "connector ready" : "connector not ready" }}
-          </span>
+      <section v-if="exportPreview.length" class="export-preview">
+        <div class="export-preview-header">
+          <div>
+            <strong>Zotero 导出预览</strong>
+            <span>
+              {{ exportPreview.length }} 篇文章 · {{ settings.zotero_export_mode }} ·
+              {{ zoteroStatus.available ? "Connector 可用" : "Connector 未连接" }}
+            </span>
+          </div>
+          <div class="actions">
+            <button type="button" @click="emit('probe-zotero')">检测 Zotero</button>
+            <label class="inline-check">
+              <input
+                :checked="exportOptions.include_pdf"
+                type="checkbox"
+                @change="
+                  emit('preview-export-selected', {
+                    ...exportOptions,
+                    include_pdf: $event.target.checked,
+                  })
+                "
+              />
+              PDF
+            </label>
+            <label class="inline-check">
+              <input
+                :checked="exportOptions.include_notes"
+                type="checkbox"
+                @change="
+                  emit('preview-export-selected', {
+                    ...exportOptions,
+                    include_notes: $event.target.checked,
+                  })
+                "
+              />
+              报告 note
+            </label>
+            <label class="inline-field">
+              导出模式
+              <select
+                :value="exportOptions.export_mode || settings.zotero_export_mode"
+                @change="
+                  emit('preview-export-selected', {
+                    ...exportOptions,
+                    export_mode: $event.target.value,
+                  })
+                "
+              >
+                <option value="prepare">仅准备 payload</option>
+                <option value="connector">Zotero Connector</option>
+                <option value="bridge">Bridge URL</option>
+              </select>
+            </label>
+            <button type="button" @click="emit('cancel-export-preview')">取消</button>
+            <button type="button" class="primary" @click="emit('confirm-export-selected')">
+              确认导出
+            </button>
+          </div>
         </div>
+        <div class="preview-items">
+          <article v-for="item in exportPreview" :key="item.task_id" class="preview-item">
+            <strong>{{ item.title }}</strong>
+            <span>
+              {{ (item.creators || []).map((creator) => creator.name).join(", ") || "作者未知" }}
+              · {{ item.date || "年份未知" }}
+            </span>
+            <span>{{ item.DOI || item.url || "无 DOI / URL" }}</span>
+            <span>Tags: {{ (item.tags || []).join(", ") }}</span>
+            <span>Collections: {{ (item.collections || []).join(", ") || "默认目标" }}</span>
+            <small>
+              {{ (item.attachments || []).length }} attachments ·
+              {{ (item.notes || []).length }} notes · 可能重复项：未检测
+            </small>
+          </article>
+        </div>
+      </section>
+
+      <div v-if="visibleTasks.length === 0" class="empty-state">
+        <strong>
+          {{ activeTab === "current" ? "没有正在处理的文章" : "还没有导出到 Zotero 的文章" }}
+        </strong>
+        <span>
+          {{ activeTab === "current" ? "从首页导入论文开始。" : "返回当前任务生成报告并导出。" }}
+        </span>
         <div class="actions">
-          <button type="button" @click="emit('probe-zotero')">Probe Zotero</button>
-          <label class="inline-check">
-            <input
-              :checked="exportOptions.include_pdf"
-              type="checkbox"
-              @change="
-                emit('preview-export-selected', {
-                  ...exportOptions,
-                  include_pdf: $event.target.checked,
-                })
-              "
-            />
-            PDF
-          </label>
-          <label class="inline-check">
-            <input
-              :checked="exportOptions.include_notes"
-              type="checkbox"
-              @change="
-                emit('preview-export-selected', {
-                  ...exportOptions,
-                  include_notes: $event.target.checked,
-                })
-              "
-            />
-            Notes
-          </label>
-          <button type="button" @click="emit('cancel-export-preview')">Cancel</button>
-          <button type="button" class="primary" @click="emit('confirm-export-selected')">
-            Confirm export
+          <button
+            v-if="activeTab === 'current'"
+            type="button"
+            class="primary"
+            @click="emit('open-home')"
+          >
+            导入论文
+          </button>
+          <button
+            v-if="activeTab === 'current'"
+            type="button"
+            @click="activeTab = 'imported'"
+          >
+            查看已导入
+          </button>
+          <button v-if="activeTab === 'imported'" type="button" @click="activeTab = 'current'">
+            返回当前任务
+          </button>
+          <button
+            v-if="activeTab === 'imported'"
+            type="button"
+            @click="emit('open-settings')"
+          >
+            打开 Zotero 设置
           </button>
         </div>
       </div>
-      <div class="preview-items">
-        <article v-for="item in exportPreview" :key="item.task_id" class="preview-item">
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.tags.join(', ') }}</span>
-          <small>
-            {{ item.attachments.length }} attachments · {{ item.notes.length }} notes
-          </small>
+
+      <div v-else class="article-list">
+        <div class="article-head">
+          <span>文章</span>
+          <span>进度</span>
+          <span>推荐阅读程度</span>
+          <span>报告复杂度</span>
+          <span>Zotero</span>
+          <span>下一步</span>
+        </div>
+        <article
+          v-for="task in visibleTasks"
+          :key="task.task_id"
+          class="article-row"
+          :class="{ selected: inspectedTask?.task_id === task.task_id }"
+          @click="inspect(task)"
+        >
+          <div class="article-title">
+            <input
+              type="checkbox"
+              :checked="selectedTaskIds.has(task.task_id)"
+              @click.stop
+              @change="emit('toggle-selection', task.task_id)"
+            />
+            <span class="status-icon" :class="statusClass(task)"></span>
+            <div>
+              <strong>{{ task.paper?.title || task.raw_input }}</strong>
+              <small>
+                {{ task.paper?.venue || task.input_type }} · {{ task.paper?.year || "年份未知" }}
+                · {{ yoloLabel(task) }}
+              </small>
+              <div class="line-progress">
+                <span :style="{ width: `${progressPercent(task)}%` }"></span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <strong>{{ task.status }}</strong>
+            <small>{{ progressPercent(task) }}%</small>
+          </div>
+          <div>
+            <span class="badge">{{ recommendation(task) }}</span>
+          </div>
+          <div>{{ reportComplexity(task) }}</div>
+          <div>{{ zoteroState(task) }}</div>
+          <div class="row-actions">
+            <span>{{ task.next_action }}</span>
+            <button
+              v-if="canGenerate(task)"
+              type="button"
+              @click.stop="emit('generate-report', task, choices(task))"
+            >
+              生成
+            </button>
+          </div>
         </article>
       </div>
-    </section>
+    </div>
 
-    <div v-if="tasks.length === 0" class="empty">{{ STRINGS.tasks.empty }}</div>
+    <aside v-if="inspectedTask" class="task-inspector">
+      <header>
+        <div>
+          <h3>{{ inspectedTask.paper?.title || inspectedTask.raw_input }}</h3>
+          <p>{{ inspectedTask.status }} · {{ progressPercent(inspectedTask) }}%</p>
+        </div>
+        <button type="button" title="关闭详情" @click="inspectedTaskId = null">×</button>
+      </header>
 
-    <div v-else class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>Paper</th>
-            <th>Locator</th>
-            <th>PDF</th>
-            <th>Parser</th>
-            <th>Value</th>
-            <th>Report</th>
-            <th>Cost</th>
-            <th>Controls</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="task in tasks" :key="task.task_id">
-            <td>
-              <input
-                type="checkbox"
-                :checked="selectedTaskIds.has(task.task_id)"
-                @change="emit('toggle-selection', task.task_id)"
-              />
-            </td>
-            <td class="paper-cell">
-              <strong>{{ task.paper?.title || task.raw_input }}</strong>
-              <small>{{ task.input_type }} · {{ task.status }} · {{ yoloLabel(task) }}</small>
-              <button
-                type="button"
-                class="link-button"
-                :disabled="loading"
-                @click="startEditMetadata(task)"
-              >
-                Edit metadata
-              </button>
-              <div v-if="choices(task).editingMetadata" class="metadata-editor">
-                <label>
-                  Title
-                  <input v-model="choices(task).metadataDraft.title" type="text" />
-                </label>
-                <label>
-                  Authors
-                  <input
-                    v-model="choices(task).metadataDraft.authors"
-                    type="text"
-                    placeholder="Comma-separated names"
-                  />
-                </label>
-                <label>
-                  Year
-                  <input v-model="choices(task).metadataDraft.year" type="number" />
-                </label>
-                <label>
-                  Venue
-                  <input v-model="choices(task).metadataDraft.venue" type="text" />
-                </label>
-                <label>
-                  DOI
-                  <input v-model="choices(task).metadataDraft.doi" type="text" />
-                </label>
-                <label>
-                  arXiv ID
-                  <input v-model="choices(task).metadataDraft.arxiv_id" type="text" />
-                </label>
-                <label class="wide">
-                  URLs
-                  <textarea v-model="choices(task).metadataDraft.urls" rows="2"></textarea>
-                </label>
-                <label class="wide">
-                  Abstract
-                  <textarea v-model="choices(task).metadataDraft.abstract" rows="3"></textarea>
-                </label>
-                <div class="metadata-actions">
-                  <button type="button" class="primary" @click="saveMetadata(task)">
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    @click="choices(task).editingMetadata = false"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-              <div v-if="candidates(task).length" class="candidate-list">
-                <div
-                  v-for="(candidate, index) in candidates(task)"
-                  :key="`${task.task_id}-${index}`"
-                  class="candidate-row"
-                >
-                  <span>
-                    {{ candidate.title }}
-                    <small>
-                      {{ candidate.doi || candidate.arxiv_id || candidate.resolution_source }}
-                    </small>
-                  </span>
-                  <button
-                    type="button"
-                    :disabled="loading"
-                    @click="emit('resolve-task', task, index)"
-                  >
-                    Choose
-                  </button>
-                </div>
-              </div>
-            </td>
-            <td>{{ task.locator_status }}</td>
-            <td>{{ task.pdf_status }}</td>
-            <td>{{ task.parser_status }}</td>
-            <td>
-              <span class="badge">{{ task.evaluation_status }}</span>
-              <div class="mini-actions">
-                <button
-                  type="button"
-                  @click="emit('override-recommendation', task, 'Very Important')"
-                >
-                  Very
-                </button>
-                <button
-                  type="button"
-                  @click="emit('override-recommendation', task, 'Brief Reading')"
-                >
-                  Brief
-                </button>
-                <button type="button" @click="emit('override-recommendation', task, 'Unrelated')">
-                  Skip
-                </button>
-              </div>
-            </td>
-            <td class="report-cell">
-              <span>{{ task.report_status }}</span>
-              <select v-model="choices(task).reportType">
-                <option v-for="type in reportTypes" :key="type">{{ type }}</option>
-              </select>
-              <input v-model="choices(task).modelId" type="text" placeholder="Report model" />
-              <details v-if="task.report" class="report-preview">
-                <summary>{{ task.report.report_type }}</summary>
-                <section
-                  v-for="[heading, content] in reportSections(task)"
-                  :key="`${task.task_id}-${heading}`"
-                >
-                  <strong>{{ heading }}</strong>
-                  <p>{{ content }}</p>
-                </section>
-              </details>
-            </td>
-            <td>${{ (task.estimated_cost || 0).toFixed(4) }}</td>
-            <td class="next-cell">
-              <span>{{ task.next_action }}</span>
-              <button
-                v-if="canGenerate(task)"
-                type="button"
-                @click="emit('generate-report', task, choices(task))"
-              >
-                {{ STRINGS.tasks.generate }}
-              </button>
-              <div class="retry-controls">
-                <select v-model="choices(task).retryStep">
-                  <option v-for="step in retrySteps" :key="step.key" :value="step.key">
-                    Retry {{ step.label }}
-                  </option>
-                </select>
-                <button
-                  type="button"
-                  :disabled="loading"
-                  @click="emit('retry-task', task, choices(task).retryStep)"
-                >
-                  Retry
-                </button>
-              </div>
-              <div class="pdf-controls">
-                <input
-                  v-model="choices(task).pdfPath"
-                  type="text"
-                  placeholder="Local PDF path"
-                />
-                <button
-                  type="button"
-                  :disabled="loading || !choices(task).pdfPath"
-                  @click="emit('attach-pdf', task, choices(task).pdfPath)"
-                >
-                  Attach PDF
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <section class="inspector-section">
+        <h4>概览</h4>
+        <dl>
+          <div><dt>推荐阅读程度</dt><dd>{{ recommendation(inspectedTask) }}</dd></div>
+          <div><dt>报告复杂度</dt><dd>{{ reportComplexity(inspectedTask) }}</dd></div>
+          <div><dt>PDF 状态</dt><dd>{{ inspectedTask.pdf_status }}</dd></div>
+          <div><dt>Zotero 状态</dt><dd>{{ zoteroState(inspectedTask) }}</dd></div>
+          <div><dt>Token / 成本</dt><dd>${{ (inspectedTask.estimated_cost || 0).toFixed(4) }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="inspector-section">
+        <h4>Pipeline</h4>
+        <div class="pipeline-list">
+          <div v-for="row in pipelineRows(inspectedTask)" :key="row.label">
+            <span>{{ row.label }}</span>
+            <strong>{{ row.status }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="candidates(inspectedTask).length" class="inspector-section">
+        <h4>消歧候选</h4>
+        <article
+          v-for="(candidate, index) in candidates(inspectedTask)"
+          :key="`${inspectedTask.task_id}-${index}`"
+          class="candidate-card"
+        >
+          <strong>{{ candidate.title }}</strong>
+          <span>{{ candidate.venue || candidate.resolution_source }} · {{ candidate.year }}</span>
+          <small>{{ candidate.doi || candidate.arxiv_id || candidate.urls?.[0] }}</small>
+          <button type="button" @click="emit('resolve-task', inspectedTask, index)">
+            选择
+          </button>
+        </article>
+        <button type="button" @click="emit('remove-task', inspectedTask.task_id)">
+          标记为非论文并移除
+        </button>
+      </section>
+
+      <section class="inspector-section">
+        <h4>元数据</h4>
+        <button
+          type="button"
+          class="link-button"
+          @click="startEditMetadata(inspectedTask)"
+        >
+          编辑元数据
+        </button>
+        <div v-if="choices(inspectedTask).editingMetadata" class="metadata-editor">
+          <label>
+            Title
+            <input v-model="choices(inspectedTask).metadataDraft.title" type="text" />
+          </label>
+          <label>
+            Authors
+            <input v-model="choices(inspectedTask).metadataDraft.authors" type="text" />
+          </label>
+          <label>
+            Year
+            <input v-model="choices(inspectedTask).metadataDraft.year" type="number" />
+          </label>
+          <label>
+            Venue
+            <input v-model="choices(inspectedTask).metadataDraft.venue" type="text" />
+          </label>
+          <label>
+            DOI
+            <input v-model="choices(inspectedTask).metadataDraft.doi" type="text" />
+          </label>
+          <label>
+            arXiv ID
+            <input v-model="choices(inspectedTask).metadataDraft.arxiv_id" type="text" />
+          </label>
+          <label class="wide">
+            URLs
+            <textarea v-model="choices(inspectedTask).metadataDraft.urls" rows="2"></textarea>
+          </label>
+          <label class="wide">
+            Abstract
+            <textarea v-model="choices(inspectedTask).metadataDraft.abstract" rows="3"></textarea>
+          </label>
+          <div class="metadata-actions">
+            <button type="button" class="primary" @click="saveMetadata(inspectedTask)">
+              保存
+            </button>
+            <button type="button" @click="choices(inspectedTask).editingMetadata = false">
+              取消
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="inspector-section">
+        <h4>PDF</h4>
+        <p>{{ inspectedTask.pdf?.local_path || inspectedTask.pdf?.source_url || "暂无 PDF，可 metadata-only 继续。" }}</p>
+        <div class="mini-actions">
+          <button
+            type="button"
+            :disabled="!inspectedTask.pdf?.local_path"
+            @click="openPdf(inspectedTask)"
+          >
+            打开缓存 PDF
+          </button>
+          <button type="button" @click="emit('skip-pdf', inspectedTask)">
+            跳过 PDF 继续
+          </button>
+          <button type="button" @click="emit('retry-task', inspectedTask, 'downloader')">
+            重试 PDF 下载
+          </button>
+          <button type="button" @click="emit('retry-task', inspectedTask, 'parser')">
+            重试解析
+          </button>
+        </div>
+        <div class="pdf-controls">
+          <input
+            v-model="choices(inspectedTask).pdfPath"
+            type="text"
+            placeholder="Local PDF path"
+          />
+          <button
+            type="button"
+            :disabled="loading || !choices(inspectedTask).pdfPath"
+            @click="emit('attach-pdf', inspectedTask, choices(inspectedTask).pdfPath)"
+          >
+            替换 PDF
+          </button>
+        </div>
+      </section>
+
+      <section class="inspector-section">
+        <h4>推荐判断</h4>
+        <p>{{ inspectedTask.evaluation?.rationale || "还没有评估结果。" }}</p>
+        <div class="mini-actions">
+          <button type="button" @click="emit('override-recommendation', inspectedTask, 'Very Important')">
+            Very Important
+          </button>
+          <button type="button" @click="emit('override-recommendation', inspectedTask, 'Brief Reading')">
+            Brief Reading
+          </button>
+          <button type="button" @click="emit('override-recommendation', inspectedTask, 'Unrelated')">
+            Unrelated
+          </button>
+        </div>
+      </section>
+
+      <section class="inspector-section">
+        <h4>报告预览</h4>
+        <div class="report-controls">
+          <select v-model="choices(inspectedTask).reportType">
+            <option v-for="type in reportTypes" :key="type">{{ type }}</option>
+          </select>
+          <input v-model="choices(inspectedTask).modelId" type="text" placeholder="Report model" />
+          <button
+            type="button"
+            :disabled="loading || !canGenerate(inspectedTask)"
+            @click="emit('generate-report', inspectedTask, choices(inspectedTask))"
+          >
+            生成报告
+          </button>
+        </div>
+        <div v-if="reportSections(inspectedTask).length" class="report-preview">
+          <section
+            v-for="[heading, content] in reportSections(inspectedTask)"
+            :key="`${inspectedTask.task_id}-${heading}`"
+          >
+            <strong>{{ heading }}</strong>
+            <p>{{ content }}</p>
+          </section>
+        </div>
+        <p v-else>报告尚未生成。</p>
+      </section>
+
+      <section v-if="inspectedTask.status === 'Budget paused'" class="inspector-section">
+        <h4>预算暂停</h4>
+        <p>
+          预计成本 ${{ (inspectedTask.estimated_cost || 0).toFixed(4) }} · 当前批次预算
+          ${{ settings.batch_budget }}
+        </p>
+        <div class="mini-actions">
+          <button type="button" @click="choices(inspectedTask).reportType = 'Quick Brief'">
+            降低报告复杂度
+          </button>
+          <button type="button" @click="emit('open-settings')">调整预算设置</button>
+          <button
+            type="button"
+            @click="emit('generate-report', inspectedTask, choices(inspectedTask))"
+          >
+            仅对本文继续
+          </button>
+        </div>
+      </section>
+
+      <section class="inspector-section">
+        <h4>Zotero 导出</h4>
+        <p>
+          {{ zoteroStatus.available ? "Zotero Connector 可用" : "Zotero Connector 未连接" }}
+          · {{ settings.zotero_export_mode }}
+        </p>
+        <button
+          type="button"
+          class="primary"
+          :disabled="loading"
+          @click="
+            !selectedTaskIds.has(inspectedTask.task_id) &&
+              emit('toggle-selection', inspectedTask.task_id);
+            emit('preview-export-selected', exportOptions);
+          "
+        >
+          预览并导出
+        </button>
+      </section>
+
+      <section
+        v-if="inspectedTask.failure_reason || inspectedTask.status === 'Failed'"
+        class="inspector-section error-section"
+      >
+        <h4>错误与恢复</h4>
+        <p>{{ inspectedTask.failure_reason || "处理失败，查看原始详情或重试。" }}</p>
+        <details>
+          <summary>原始错误详情</summary>
+          <pre>{{ inspectedTask.failure_reason || inspectedTask }}</pre>
+        </details>
+        <div class="retry-controls">
+          <select v-model="choices(inspectedTask).retryStep">
+            <option v-for="step in retrySteps" :key="step.key" :value="step.key">
+              {{ step.label }}
+            </option>
+          </select>
+          <button
+            type="button"
+            :disabled="loading"
+            @click="emit('retry-task', inspectedTask, choices(inspectedTask).retryStep)"
+          >
+            重试
+          </button>
+        </div>
+      </section>
+    </aside>
+
+    <footer class="global-progress">
+      <button type="button" @click="showProgressDetails = !showProgressDetails">
+        正在处理 {{ currentTasks.length }} 篇论文 · {{ totalProgress.done }} /
+        {{ totalProgress.total }} 已导入
+      </button>
+      <div class="global-progress-bar">
+        <span :style="{ width: `${totalProgress.percent}%` }"></span>
+      </div>
+      <span>Token：${{ totalCost.toFixed(4) }} / ${{ settings.batch_budget }}</span>
+      <button type="button" :disabled="loading" @click="emit('set-worker-running', false)">
+        暂停全部
+      </button>
+      <div v-if="showProgressDetails" class="progress-popover">
+        <strong>队列状态</strong>
+        <span>运行中：{{ workerStatus.running ? "是" : "否" }}</span>
+        <span>当前任务：{{ currentTasks.length }}</span>
+        <span>失败：{{ failedCount }}</span>
+        <span>需复核：{{ reviewCount }}</span>
+        <span>当前模型调用状态：{{ modelCallStatus }}</span>
+        <span>Worker 最近错误：{{ workerStatus.last_error || "无" }}</span>
+      </div>
+    </footer>
+
+    <div v-if="pendingBulkReport" class="sheet-backdrop">
+      <section class="sheet">
+        <h3>更改 {{ selectedCount }} 篇文章的报告粒度？</h3>
+        <p>
+          已生成的报告不会自动重新生成，除非后续选择重新生成已完成报告。
+        </p>
+        <label class="checkbox-row">
+          <input checked type="checkbox" />
+          对后续未处理论文生效
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" />
+          重新生成已完成报告
+        </label>
+        <label class="checkbox-row">
+          <input checked type="checkbox" />
+          保留原有人工修改内容
+        </label>
+        <div class="actions">
+          <button type="button" @click="pendingBulkReport = false">取消</button>
+          <button type="button" class="primary" @click="confirmGenerateSelected">
+            应用
+          </button>
+        </div>
+      </section>
     </div>
   </section>
 </template>

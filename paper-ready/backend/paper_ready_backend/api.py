@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import database
 from .models import (
     AppSettings,
+    CacheCleanupRequest,
     ExportRequest,
     ExportPreviewRequest,
     PdfAttachRequest,
@@ -20,7 +21,9 @@ from .models import (
     TaskResolveRequest,
     TaskRetryRequest,
     TaskYoloRequest,
+    new_id,
 )
+from .prompts import DEFAULT_PROMPT_TEMPLATES
 from .services import (
     create_tasks,
     attach_local_pdf,
@@ -32,6 +35,7 @@ from .services import (
     resolve_task,
     retry_task,
     set_task_yolo,
+    skip_pdf,
 )
 from .modules.zotero import build_zotero_payload, probe_zotero
 from .worker import worker_manager
@@ -67,6 +71,12 @@ def health() -> dict[str, str]:
 def storage_debug() -> dict:
     """Return a compact storage diagnostic snapshot."""
     return database.export_payload()
+
+
+@app.post("/debug/cache/clear")
+def clear_cache(request: CacheCleanupRequest) -> dict:
+    """Clear PaperReady-owned cache files for the requested cleanup mode."""
+    return database.clear_cache(request.mode)
 
 
 @app.get("/pipeline", response_model=list[dict])
@@ -105,6 +115,12 @@ def get_settings() -> AppSettings:
     return database.get_settings()
 
 
+@app.get("/settings/prompt-defaults")
+def get_prompt_defaults() -> dict[str, str]:
+    """Return backend-owned default prompt templates for the editor."""
+    return DEFAULT_PROMPT_TEMPLATES.copy()
+
+
 @app.put("/settings", response_model=AppSettings)
 def put_settings(settings: AppSettings) -> AppSettings:
     """Replace persisted user settings."""
@@ -115,7 +131,11 @@ def put_settings(settings: AppSettings) -> AppSettings:
 def post_tasks(request: TaskCreateRequest) -> list[PaperTask]:
     """Create queued tasks from batch inputs."""
     tasks = create_tasks(request.inputs)
+    batch_id = new_id("batch")
+    batch_label = f"Import Batch {batch_id.removeprefix('batch_')}"
     for task in tasks:
+        task.batch_id = batch_id
+        task.batch_label = batch_label
         database.save_task(task)
     return tasks
 
@@ -123,6 +143,14 @@ def post_tasks(request: TaskCreateRequest) -> list[PaperTask]:
 @app.get("/tasks", response_model=list[PaperTask])
 def get_tasks() -> list[PaperTask]:
     """List all durable queue tasks."""
+    return database.list_tasks()
+
+
+@app.delete("/tasks/{task_id}", response_model=list[PaperTask])
+def delete_task(task_id: str) -> list[PaperTask]:
+    """Remove one task from the local queue and return the remaining tasks."""
+    if not database.delete_task(task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
     return database.list_tasks()
 
 
@@ -152,6 +180,13 @@ def post_retry_task(task_id: str, request: TaskRetryRequest) -> PaperTask:
 def post_attach_pdf(task_id: str, request: PdfAttachRequest) -> PaperTask:
     """Attach or replace one task's local PDF."""
     task = attach_local_pdf(_load_task(task_id), request)
+    return database.save_task(task)
+
+
+@app.post("/tasks/{task_id}/skip-pdf", response_model=PaperTask)
+def post_skip_pdf(task_id: str) -> PaperTask:
+    """Continue one task as metadata-only after the user skips PDF handling."""
+    task = skip_pdf(_load_task(task_id), database.get_settings())
     return database.save_task(task)
 
 
@@ -207,6 +242,7 @@ def post_export(request: ExportRequest) -> list[PaperTask]:
             settings,
             include_pdf=request.include_pdf,
             include_notes=request.include_notes,
+            export_mode=request.export_mode,
         )
         exported.append(database.save_task(task))
     return exported
@@ -233,3 +269,17 @@ def post_export_preview(request: ExportPreviewRequest) -> list[dict]:
 def get_zotero_status() -> dict:
     """Probe Zotero Connector readiness without writing to the library."""
     return probe_zotero(database.get_settings())
+
+
+@app.post("/zotero/test-payload")
+def post_zotero_test_payload() -> dict:
+    """Return a safe sample Zotero payload for Settings diagnostics."""
+    return {
+        "itemType": "journalArticle",
+        "title": "PaperReady Zotero Test Payload",
+        "creators": [{"creatorType": "author", "name": "PaperReady"}],
+        "tags": ["Needs Review"],
+        "collections": [],
+        "attachments": [],
+        "notes": [{"title": "PaperReady Test", "body": "Connector diagnostic payload."}],
+    }

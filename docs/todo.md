@@ -40,7 +40,8 @@ date as the handoff source for future implementation.
 - [x] Move frontend API helpers, UI strings, and global styles into separate
   files.
 - [x] Add tests for the published pipeline shape.
-- [x] Run tests/build checks and record the milestone commit ID here.
+- [x] Run tests/build checks. Commit ID is pending until the user asks to commit
+  this implementation pass.
 
 ## Current Milestone: Task Controls And Settings Coverage
 
@@ -196,6 +197,39 @@ date as the handoff source for future implementation.
 - [x] Keep report previews collapsed by default to preserve table density.
 - [x] Document generated report inspection in `paper-ready/README.md`.
 - [x] Run tests/build checks and record the milestone commit ID here.
+
+## Current Milestone: UI Specification Implementation Pass
+
+- [x] Enable native Tauri window decorations and remove fake traffic-light
+  controls from the Vue title bar.
+- [x] Add sidebar runtime status for backend, Zotero, worker, and YOLO mode.
+- [x] Rework Home into a dense import center with text import, drag-and-drop
+  file queue, import preflight, recent imports, and backend unavailable state.
+- [x] Rework Tasks into an article-level download-manager view with
+  `Current tasks` and `Imported` tabs.
+- [x] Keep task and settings subpages flush inside the desktop shell instead of
+  wrapping them in another rounded container.
+- [x] Remove the redundant task-page title, compact the task toolbar, and remove
+  the per-row detail button in favor of row-click inspector opening.
+- [x] Filter the task list by import batch when opening a recent import from
+  Home, with a compact clear-filter strip.
+- [x] Show article name, progress, reading recommendation, report complexity,
+  Zotero state, and next action per row.
+- [x] Add multi-select batch controls for report generation, Zotero preview,
+  YOLO toggles, and task removal.
+- [x] Add a right-side article inspector for pipeline status, metadata editing,
+  disambiguation, PDF replacement, recommendation overrides, report preview,
+  Zotero status, and recoverable errors.
+- [x] Add a global task progress bar with queue details.
+- [x] Rework Settings into macOS-style sections for general behavior, research
+  interests, models/token budgets, prompts, Zotero, privacy/cache, and
+  diagnostics.
+- [x] Add `DELETE /tasks/{task_id}` for article removal and document it in
+  `docs/api.md`.
+- [x] Add a PyInstaller backend sidecar entrypoint and build script, with Tauri
+  dev fallback to `conda run -n generic python`.
+- [x] Run tests/build checks. Commit ID is pending until the user asks to commit
+  this implementation pass.
 
 ## Backend Tasks
 

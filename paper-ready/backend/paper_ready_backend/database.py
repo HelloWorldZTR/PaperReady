@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import AppSettings, PaperTask, utc_now
+from .prompts import DEFAULT_PROMPT_TEMPLATES
 
 
 def get_db_path() -> Path:
@@ -118,6 +119,13 @@ def get_task(task_id: str) -> PaperTask | None:
     return _task_from_row(row) if row else None
 
 
+def delete_task(task_id: str) -> bool:
+    """Delete one task by identifier and report whether a row was removed."""
+    with connect() as conn:
+        cursor = conn.execute("DELETE FROM tasks WHERE task_id = ?", (task_id,))
+    return cursor.rowcount > 0
+
+
 def get_settings() -> AppSettings:
     """Return stored app settings, creating defaults on first use."""
     with connect() as conn:
@@ -126,11 +134,15 @@ def get_settings() -> AppSettings:
         settings = AppSettings()
         save_settings(settings)
         return settings
-    return AppSettings(**json.loads(row["payload"]))
+    settings = AppSettings(**json.loads(row["payload"]))
+    if _merge_default_prompts(settings):
+        save_settings(settings)
+    return settings
 
 
 def save_settings(settings: AppSettings) -> AppSettings:
     """Persist app settings and return the saved model."""
+    _merge_default_prompts(settings)
     payload = settings.model_dump_json()
     with connect() as conn:
         conn.execute(
@@ -146,10 +158,86 @@ def save_settings(settings: AppSettings) -> AppSettings:
     return settings
 
 
+def _merge_default_prompts(settings: AppSettings) -> bool:
+    """Fill missing prompt template keys without overwriting user edits."""
+    changed = False
+    prompts = dict(settings.prompt_templates or {})
+    for key, value in DEFAULT_PROMPT_TEMPLATES.items():
+        if (
+            key not in prompts
+            or not str(prompts[key]).strip()
+            or _is_legacy_default_prompt(key, str(prompts[key]))
+        ):
+            prompts[key] = value
+            changed = True
+    if changed:
+        settings.prompt_templates = prompts
+    return changed
+
+
+def _is_legacy_default_prompt(key: str, value: str) -> bool:
+    """Return whether a stored prompt is an old built-in default."""
+    if "{{" in value:
+        return False
+    if key == "Evaluator prompt":
+        return (
+            "PaperReady's research-paper triage evaluator" in value
+            and "Recommendation policy:" in value
+        )
+    if key.endswith("Report prompt"):
+        return (
+            "PaperReady's academic report writer" in value
+            and "Section requirements:" in value
+        )
+    if key == "Zotero note prompt":
+        return value.startswith("Convert generated report sections")
+    return False
+
+
 def export_payload() -> dict[str, Any]:
     """Return a compact database snapshot for diagnostics."""
+    data_dir = get_data_dir()
+    cache_size = 0
+    if data_dir.exists():
+        cache_size = sum(
+            path.stat().st_size for path in data_dir.rglob("*") if path.is_file()
+        )
     return {
         "db_path": str(get_db_path()),
+        "data_dir": str(data_dir),
+        "cache_size_bytes": cache_size,
         "task_count": len(list_tasks()),
         "settings": get_settings().model_dump(),
     }
+
+
+def clear_cache(mode: str) -> dict[str, int]:
+    """Remove cached local files for the requested cleanup mode."""
+    data_dir = get_data_dir().resolve()
+    removed = 0
+    bytes_removed = 0
+    candidates: set[Path] = set()
+    tasks = list_tasks()
+    if mode == "all":
+        candidates = {path for path in data_dir.rglob("*") if path.is_file()} if data_dir.exists() else set()
+    else:
+        matching = [
+            task
+            for task in tasks
+            if (mode == "failed" and task.status in {"Failed", "Parse failed"})
+            or (mode == "exported" and task.status == "Exported")
+        ]
+        for task in matching:
+            if task.pdf and task.pdf.local_path:
+                candidates.add(Path(task.pdf.local_path))
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+            if resolved.is_file() and resolved.is_relative_to(data_dir):
+                size = resolved.stat().st_size
+                resolved.unlink()
+                removed += 1
+                bytes_removed += size
+        except OSError:
+            continue
+    return {"removed": removed, "bytes_removed": bytes_removed}

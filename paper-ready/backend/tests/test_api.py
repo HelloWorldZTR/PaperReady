@@ -28,6 +28,7 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         created = client.post("/tasks", json={"inputs": ["2401.12345"]})
         assert created.status_code == 200
         task_id = created.json()[0]["task_id"]
+        assert created.json()[0]["batch_id"].startswith("batch_")
 
         processed = client.post(f"/tasks/{task_id}/process")
         assert processed.status_code == 200
@@ -37,6 +38,12 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         assert pipeline.status_code == 200
         assert pipeline.json()[0]["key"] == "locator"
         assert pipeline.json()[-1]["key"] == "zotero"
+
+        prompt_defaults = client.get("/settings/prompt-defaults")
+        assert prompt_defaults.status_code == 200
+        assert "Paper value" in prompt_defaults.json()["Evaluator prompt"]
+        assert "{{title}}" in prompt_defaults.json()["Evaluator prompt"]
+        assert "{{user_research_context}}" in prompt_defaults.json()["Quick Brief prompt"]
 
         retried = client.post(f"/tasks/{task_id}/retry", json={"step": "downloader"})
         assert retried.status_code == 200
@@ -50,6 +57,11 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         )
         assert attached.status_code == 200
         assert attached.json()["pdf"]["source_type"] == "user_upload"
+
+        skipped = client.post(f"/tasks/{task_id}/skip-pdf")
+        assert skipped.status_code == 200
+        assert skipped.json()["pdf_status"] == "PDF unavailable"
+        assert skipped.json()["parser_status"] == "Metadata only"
 
         ambiguous = client.post("/tasks", json={"inputs": ["Paper One or Paper Two"]})
         ambiguous_id = ambiguous.json()[0]["task_id"]
@@ -82,9 +94,21 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
         assert zotero_status.status_code == 200
         assert zotero_status.json()["available"] is False
 
+        cache_file = tmp_path / "data" / "cached.bin"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(b"cache")
+        cleared = client.post("/debug/cache/clear", json={"mode": "all"})
+        assert cleared.status_code == 200
+        assert cleared.json()["removed"] >= 1
+        assert not cache_file.exists()
+
         listed = client.get("/tasks")
         assert listed.status_code == 200
         assert listed.json()[0]["task_id"] == task_id
+
+        deleted = client.delete(f"/tasks/{task_id}")
+        assert deleted.status_code == 200
+        assert all(task["task_id"] != task_id for task in deleted.json())
 
 
 def test_worker_yolo_generates_report(tmp_path, monkeypatch) -> None:

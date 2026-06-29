@@ -10,7 +10,7 @@ from ..models import (
     RecommendationOverride,
     ValueRecommendation,
 )
-from ..prompts import EVALUATION_PROMPT
+from ..prompts import EVALUATION_PROMPT, prompt_template, render_prompt
 
 RECOMMENDATIONS: set[str] = {
     "Very Important",
@@ -73,15 +73,42 @@ def _evaluate_with_llm(
 ) -> EvaluationRecord | None:
     """Evaluate reading value with the configured LLM when available."""
     section_text = task.parsed.sections if task.parsed else {}
+    paper = task.paper
+    prompt_variables = {
+        "title": paper.title if paper else "",
+        "abstract": paper.abstract if paper else "",
+        "authors": paper.authors if paper else [],
+        "venue": paper.venue if paper else "",
+        "year": paper.year if paper else "",
+        "doi": paper.doi if paper else "",
+        "arxiv_id": paper.arxiv_id if paper else "",
+        "pdf_text": "\n\n".join(section_text.values()),
+        "sections": section_text,
+        "references": task.parsed.references if task.parsed else [],
+        "user_research_context": settings.research_interests,
+        "value_recommendation": "",
+    }
     payload = complete_json(
         settings,
         settings.evaluation_model,
-        EVALUATION_PROMPT,
+        render_prompt(
+            prompt_template(settings, "Evaluator prompt", EVALUATION_PROMPT),
+            prompt_variables,
+        ),
         "\n".join(
             [
                 f"Research interests: {settings.research_interests}",
-                f"Title: {task.paper.title if task.paper else ''}",
-                f"Abstract: {task.paper.abstract if task.paper else ''}",
+                f"Research tags: {settings.research_tags}",
+                f"Title: {paper.title if paper else ''}",
+                f"Authors: {paper.authors if paper else []}",
+                f"Year: {paper.year if paper else ''}",
+                f"Venue: {paper.venue if paper else ''}",
+                f"DOI: {paper.doi if paper else ''}",
+                f"arXiv ID: {paper.arxiv_id if paper else ''}",
+                f"Source confidence: {paper.source_confidence if paper else 0}",
+                f"Resolution source: {paper.resolution_source if paper else ''}",
+                f"Abstract: {paper.abstract if paper else ''}",
+                f"Parse quality: {task.parsed.parse_quality if task.parsed else 'metadata_only'}",
                 f"Sections: {section_text}",
             ]
         ),

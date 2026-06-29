@@ -26,6 +26,9 @@ Install Python dependencies from the repository root:
 pip install -r requirements.txt
 ```
 
+`pyinstaller` is included in `requirements.txt` so production builds can package
+the FastAPI backend as a Tauri sidecar.
+
 Install frontend dependencies:
 
 ```bash
@@ -66,6 +69,10 @@ cd paper-ready
 pnpm tauri dev
 ```
 
+During desktop development, Tauri starts the backend with
+`conda run -n generic python` unless `PAPERREADY_PYTHON` or
+`PAPERREADY_BACKEND_EXTERNAL=1` is set.
+
 ## Build
 
 Build the Vue frontend:
@@ -74,6 +81,10 @@ Build the Vue frontend:
 cd paper-ready
 pnpm build
 ```
+
+`pnpm build` also runs the backend sidecar build script. If PyInstaller is not
+installed in the active Python environment, the script logs a skip message and
+leaves frontend build output intact.
 
 Build the Tauri app:
 

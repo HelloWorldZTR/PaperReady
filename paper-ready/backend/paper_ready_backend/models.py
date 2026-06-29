@@ -8,6 +8,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from .prompts import DEFAULT_PROMPT_TEMPLATES
+
 
 def utc_now() -> str:
     """Return an ISO timestamp for durable queue records."""
@@ -112,6 +114,8 @@ class ReportRecord(BaseModel):
 
 class PaperTask(BaseModel):
     task_id: str = Field(default_factory=lambda: new_id("task"))
+    batch_id: str | None = None
+    batch_label: str | None = None
     raw_input: str
     input_type: InputType
     status: TaskStatus = "Queued"
@@ -136,7 +140,9 @@ class PaperTask(BaseModel):
 
 
 class AppSettings(BaseModel):
+    default_start_page: str = "home"
     research_interests: str = ""
+    research_tags: list[str] = Field(default_factory=list)
     batch_budget: float = 3.0
     daily_budget: float | None = None
     monthly_budget: float | None = None
@@ -155,6 +161,17 @@ class AppSettings(BaseModel):
     zotero_bridge_url: str | None = None
     zotero_connector_url: str = "http://127.0.0.1:23119"
     zotero_export_mode: str = "prepare"
+    zotero_default_collection: str | None = None
+    zotero_include_pdf_by_default: bool = True
+    zotero_include_notes_by_default: bool = True
+    zotero_collection_mapping: dict[str, str] = Field(
+        default_factory=lambda: {
+            "Very Important": "Very Important",
+            "Brief Reading": "Brief Reading",
+            "Unrelated": "Unrelated",
+            "Needs Review": "Needs Review",
+        }
+    )
     report_types: dict[str, list[str]] = Field(
         default_factory=lambda: {
             "Quick Brief": ["summary", "main_contribution", "relevance"],
@@ -167,7 +184,9 @@ class AppSettings(BaseModel):
             ],
         }
     )
-    prompt_templates: dict[str, str] = Field(default_factory=dict)
+    prompt_templates: dict[str, str] = Field(
+        default_factory=lambda: DEFAULT_PROMPT_TEMPLATES.copy()
+    )
 
 
 class TaskCreateRequest(BaseModel):
@@ -206,7 +225,12 @@ class ExportRequest(BaseModel):
     include_pdf: bool = True
     include_notes: bool = True
     category: ValueRecommendation | None = None
+    export_mode: Literal["prepare", "connector", "bridge"] | None = None
 
 
 class ExportPreviewRequest(ExportRequest):
     pass
+
+
+class CacheCleanupRequest(BaseModel):
+    mode: Literal["failed", "exported", "all"]

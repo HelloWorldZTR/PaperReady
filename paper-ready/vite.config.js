@@ -1,11 +1,27 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const host = process.env.TAURI_DEV_HOST;
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+const buildId =
+  process.env.PAPERREADY_BUILD_ID ||
+  (() => {
+    try {
+      return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+    } catch {
+      return "unknown";
+    }
+  })();
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_ID__: JSON.stringify(buildId),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

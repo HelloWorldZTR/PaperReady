@@ -7,6 +7,7 @@ from paper_ready_backend.models import (
     TaskRetryRequest,
 )
 from paper_ready_backend.modules import downloader
+from paper_ready_backend.modules import evaluator
 from paper_ready_backend.modules import locator
 from paper_ready_backend.modules.parser import parse_text_sections
 from paper_ready_backend.modules import zotero
@@ -44,6 +45,40 @@ def test_process_arxiv_task_reaches_report_ready(tmp_path, monkeypatch) -> None:
     assert processed.pdf.local_path
     assert processed.parser_status == "Parsed"
     assert processed.evaluation is not None
+
+
+def test_evaluator_renders_editable_prompt_variables(monkeypatch) -> None:
+    """Editable evaluator prompts render {{variable}} tokens before LLM calls."""
+    captured = {}
+
+    def fake_complete_json(_settings, _model, system_prompt, _user_prompt):
+        captured["system_prompt"] = system_prompt
+        return {
+            "value_recommendation": "Brief Reading",
+            "confidence": 0.8,
+            "rationale": "Rendered prompt was used.",
+            "suggested_next_action": "Generate report",
+            "suggested_report_type": "Quick Brief",
+        }
+
+    monkeypatch.setattr(evaluator, "complete_json", fake_complete_json)
+    task = create_tasks(["Example paper"])[0]
+    task.paper = PaperRecord(title="Rendered Title", abstract="Rendered Abstract")
+    evaluator.evaluate_task(
+        task,
+        AppSettings(
+            api_key="test-key",
+            research_interests="robot learning",
+            prompt_templates={
+                "Evaluator prompt": (
+                    "Evaluate {{title}} for {{user_research_context}}."
+                )
+            },
+        ),
+    )
+    assert "Rendered Title" in captured["system_prompt"]
+    assert "robot learning" in captured["system_prompt"]
+    assert "{{title}}" not in captured["system_prompt"]
 
 
 def test_locator_uses_deterministic_doi_metadata(monkeypatch) -> None:

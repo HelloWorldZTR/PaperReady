@@ -44,10 +44,11 @@ def export_to_zotero(
     settings: AppSettings,
     include_pdf: bool = True,
     include_notes: bool = True,
+    export_mode: str | None = None,
 ) -> PaperTask:
     """Prepare or send a Zotero bridge payload without touching SQLite."""
     payload = build_zotero_payload(task, category, include_pdf, include_notes)
-    mode = settings.zotero_export_mode
+    mode = export_mode or settings.zotero_export_mode
     if mode == "bridge" and settings.zotero_bridge_url:
         try:
             response = httpx.post(settings.zotero_bridge_url, json=payload, timeout=CONNECTOR_TIMEOUT)

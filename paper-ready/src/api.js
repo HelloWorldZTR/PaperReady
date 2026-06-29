@@ -11,6 +11,28 @@ export async function resolveBackendUrl() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function waitForBackend(baseUrl, attempts = 120) {
+  /** Wait until the local backend accepts requests after Tauri starts it. */
+  let lastError = null;
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      const response = await fetch(`${baseUrl}/health`, { cache: "no-store" });
+      if (response.ok) {
+        return true;
+      }
+      lastError = new Error(await response.text());
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(250);
+  }
+  throw lastError || new Error("Backend did not become ready");
+}
+
 export async function apiRequest(baseUrl, path, options = {}) {
   /** Call the local backend and raise API failures as Error objects. */
   const response = await fetch(`${baseUrl}${path}`, {
@@ -22,4 +44,3 @@ export async function apiRequest(baseUrl, path, options = {}) {
   }
   return response.json();
 }
-
