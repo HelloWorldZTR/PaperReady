@@ -98,9 +98,34 @@ def test_locator_uses_deterministic_doi_metadata(monkeypatch) -> None:
     assert task.paper.resolution_source == "crossref"
 
 
+def test_locator_accepts_llm_web_search_arxiv_match(monkeypatch) -> None:
+    """Model web search arXiv matches are enough to resolve a title input."""
+    monkeypatch.setattr(locator, "lookup_arxiv", lambda _arxiv_id: None)
+    monkeypatch.setattr(
+        locator,
+        "complete_json_with_web_search",
+        lambda *_args, **_kwargs: {
+            "match_status": "matched",
+            "title": "Web Found Paper",
+            "authors": ["Ada Lovelace"],
+            "arxiv_id": "2501.12345",
+            "urls": ["https://arxiv.org/abs/2501.12345"],
+            "abstract": "Found through model-managed web search.",
+            "source_confidence": 0.91,
+            "candidate_records": [],
+        },
+    )
+    task = locator.locate_paper(
+        create_tasks(["Web Found Paper"])[0],
+        AppSettings(api_key="test-key"),
+    )
+    assert task.status == "Located"
+    assert task.paper.arxiv_id == "2501.12345"
+    assert task.paper.resolution_source == "llm_web_search"
+
+
 def test_disambiguation_candidate_can_be_resolved(monkeypatch) -> None:
     """Ambiguous locating results pause and can be resolved by candidate index."""
-    monkeypatch.setattr(locator, "search_title", lambda _title: [])
     task = process_task(create_tasks(["Paper One or Paper Two"])[0], AppSettings())
     assert task.status == "Needs disambiguation"
     assert len(task.paper.candidate_records) == 2

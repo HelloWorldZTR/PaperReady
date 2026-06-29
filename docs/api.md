@@ -148,8 +148,11 @@ Replaces persisted settings. Important fields include:
 LLM-backed locator, evaluator, and summarizer calls use `api_key`,
 `llm_api_base_url`, and the relevant stage model. If no API key is configured
 or the provider call fails, modules fall back to deterministic local behavior.
-The locator also tries deterministic metadata lookups through arXiv Atom and
-Crossref before using LLM or local fallback behavior.
+The locator uses model-managed web search when available to identify title or
+URL inputs; if the model finds a credible arXiv match, PaperReady treats the
+paper as resolved. Exact arXiv identifiers are also accepted as resolved even
+when metadata enrichment fails. DOI inputs still use Crossref before local
+fallback behavior.
 
 ## Tasks
 

@@ -6,9 +6,15 @@ import json
 from typing import Any
 
 LOCATOR_PROMPT = (
-    "Resolve one paper input into metadata. Prefer arXiv when available. "
-    "Return JSON with title, authors, year, venue, doi, arxiv_id, urls, "
-    "abstract, source_confidence, and candidate_records."
+    "Resolve one paper input into metadata using web search. Search the web for "
+    "the exact paper identity, prioritizing arXiv. If any credible arXiv page "
+    "matches the input, treat the paper as successfully matched and return its "
+    "arxiv_id. Return only JSON with title, authors, year, venue, doi, arxiv_id, "
+    "urls, abstract, source_confidence, match_status, rationale, and "
+    "candidate_records. Use match_status='matched' only when you found a "
+    "specific paper; use 'ambiguous' with candidate_records when multiple "
+    "papers plausibly match; use 'not_found' when web search cannot identify "
+    "the paper. Do not invent metadata."
 )
 EVALUATION_PROMPT = """
 You are PaperReady's research-paper triage evaluator.

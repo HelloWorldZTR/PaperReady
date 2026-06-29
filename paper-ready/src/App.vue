@@ -231,6 +231,7 @@ async function refreshTasks() {
     last_pause_reason:
       tasks.value.find((task) => task.status === "Budget paused")?.failure_reason || "",
   };
+  await refreshDebugInfo();
 }
 
 /** Persist settings used by evaluation, budget checks, and model choices. */
@@ -348,6 +349,7 @@ async function processAll() {
   errorMessage.value = "";
   try {
     tasks.value = await api("/tasks/process-all", { method: "POST" });
+    await refreshDebugInfo();
   } catch (error) {
     errorMessage.value = error.message;
   } finally {
@@ -456,25 +458,26 @@ async function skipPdf(task) {
   }
 }
 
-/** Set task-level YOLO override for all selected rows. */
-async function setSelectedYolo(enabled) {
+/** Set one task's YOLO override from the inspector. */
+async function setTaskYolo(task, enabled) {
   loading.value = true;
   errorMessage.value = "";
   try {
-    await Promise.all(
-      [...selectedTaskIds.value].map((taskId) =>
-        api(`/tasks/${taskId}/yolo`, {
-          method: "POST",
-          body: JSON.stringify({ enabled }),
-        }),
-      ),
-    );
+    await api(`/tasks/${task.task_id}/yolo`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
     await refreshTasks();
   } catch (error) {
     errorMessage.value = error.message;
   } finally {
     loading.value = false;
   }
+}
+
+/** Replace the selected task id set. */
+function setSelection(taskIds) {
+  selectedTaskIds.value = new Set(taskIds);
 }
 
 /** Resolve a task with a candidate selection or user-edited metadata. */
@@ -520,11 +523,14 @@ async function previewExportSelected(options = exportOptions.value) {
   loading.value = true;
   errorMessage.value = "";
   try {
-    exportOptions.value = { ...exportOptions.value, ...options };
+    const taskIds = options.task_ids || [...selectedTaskIds.value];
+    const { task_ids: _taskIds, ...nextOptions } = options;
+    exportOptions.value = { ...exportOptions.value, ...nextOptions };
+    selectedTaskIds.value = new Set(taskIds);
     exportPreview.value = await api("/export/zotero/preview", {
       method: "POST",
       body: JSON.stringify({
-        task_ids: [...selectedTaskIds.value],
+        task_ids: taskIds,
         ...exportOptions.value,
       }),
     });
@@ -540,7 +546,7 @@ async function confirmExportSelected() {
   loading.value = true;
   errorMessage.value = "";
   try {
-    tasks.value = await api("/export/zotero", {
+    await api("/export/zotero", {
       method: "POST",
       body: JSON.stringify({
         task_ids: [...selectedTaskIds.value],
@@ -549,6 +555,7 @@ async function confirmExportSelected() {
     });
     selectedTaskIds.value = new Set();
     exportPreview.value = [];
+    await refreshTasks();
     await probeZotero();
   } catch (error) {
     errorMessage.value = error.message;
@@ -640,6 +647,7 @@ onMounted(initialize);
         <TasksPage
           v-else-if="activePage === 'tasks'"
           :batch-filter="taskBatchFilter"
+          :debug-info="debugInfo"
           :loading="loading"
           :pipeline="pipeline"
           :settings="settings"
@@ -668,7 +676,8 @@ onMounted(initialize);
           @remove-selected-tasks="removeSelectedTasks"
           @remove-task="removeTask"
           @run-worker-once="runWorkerOnce"
-          @set-selected-yolo="setSelectedYolo"
+          @set-selection="setSelection"
+          @set-task-yolo="setTaskYolo"
           @set-worker-running="setWorkerRunning"
           @skip-pdf="skipPdf"
           @toggle-selection="toggleSelection"

@@ -1,9 +1,10 @@
 <script setup>
 import { openPath } from "@tauri-apps/plugin-opener";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, reactive, ref } from "vue";
 
 const props = defineProps({
   batchFilter: { type: String, default: null },
+  debugInfo: { type: Object, required: true },
   exportOptions: { type: Object, required: true },
   exportPreview: { type: Array, required: true },
   loading: Boolean,
@@ -34,7 +35,8 @@ const emit = defineEmits([
   "retry-failed-tasks",
   "retry-task",
   "run-worker-once",
-  "set-selected-yolo",
+  "set-selection",
+  "set-task-yolo",
   "set-worker-running",
   "skip-pdf",
   "toggle-selection",
@@ -71,12 +73,24 @@ const visibleTasks = computed(() =>
   ),
 );
 const selectedCount = computed(() => props.selectedTaskIds.size);
+const visibleTaskIds = computed(() => visibleTasks.value.map((task) => task.task_id));
+const visibleSelectedCount = computed(
+  () => visibleTaskIds.value.filter((taskId) => props.selectedTaskIds.has(taskId)).length,
+);
+const allVisibleSelected = computed(
+  () => visibleTaskIds.value.length > 0 && visibleSelectedCount.value === visibleTaskIds.value.length,
+);
+const someVisibleSelected = computed(
+  () => visibleSelectedCount.value > 0 && !allVisibleSelected.value,
+);
 const selectedTasks = computed(() =>
   props.tasks.filter((task) => props.selectedTaskIds.has(task.task_id)),
 );
 const inspectedTask = computed(() => {
-  const id = inspectedTaskId.value || selectedTasks.value[0]?.task_id;
-  return props.tasks.find((task) => task.task_id === id) || null;
+  if (!inspectedTaskId.value) {
+    return null;
+  }
+  return props.tasks.find((task) => task.task_id === inspectedTaskId.value) || null;
 });
 const reportTypes = computed(() => {
   const configured = Object.keys(props.settings.report_types || {});
@@ -111,14 +125,6 @@ const modelCallStatus = computed(() => {
   return `${active.status}: ${active.paper?.title || active.raw_input}`;
 });
 
-watch(
-  () => inspectedTask.value?.task_id,
-  (taskId) => {
-    inspectedTaskId.value = taskId || null;
-  },
-  { immediate: true },
-);
-
 /** Return mutable row choices with sensible defaults. */
 function choices(task) {
   if (!rowChoices[task.task_id]) {
@@ -142,6 +148,11 @@ function canGenerate(task) {
 /** Return generated report sections in display order. */
 function reportSections(task) {
   return Object.entries(task?.report?.sections || {});
+}
+
+/** Return parsed PDF sections in display order. */
+function parsedSections(task) {
+  return Object.entries(task?.parsed?.sections || {});
 }
 
 /** Return candidate records for a disambiguation task. */
@@ -203,6 +214,15 @@ function zoteroState(task) {
 /** Open the inspector for one task. */
 function inspect(task) {
   inspectedTaskId.value = task.task_id;
+}
+
+/** Select or clear every task currently visible in the active list. */
+function toggleVisibleSelection(checked) {
+  const next = new Set(props.selectedTaskIds);
+  for (const taskId of visibleTaskIds.value) {
+    checked ? next.add(taskId) : next.delete(taskId);
+  }
+  emit("set-selection", [...next]);
 }
 
 /** Open the metadata editor for the inspected task. */
@@ -282,6 +302,13 @@ function statusClass(task) {
 async function openPdf(task) {
   if (task.pdf?.local_path) {
     await openPath(task.pdf.local_path);
+  }
+}
+
+/** Open the PaperReady data directory that stores downloaded artifacts. */
+async function openDataDir() {
+  if (props.debugInfo.data_dir) {
+    await openPath(props.debugInfo.data_dir);
   }
 }
 
@@ -380,89 +407,6 @@ function confirmGenerateSelected() {
         >
           导出到 Zotero
         </button>
-        <button type="button" :disabled="loading" @click="emit('set-selected-yolo', true)">
-          启用 YOLO
-        </button>
-        <button type="button" :disabled="loading" @click="emit('set-selected-yolo', false)">
-          禁用 YOLO
-        </button>
-      </section>
-
-      <section v-if="exportPreview.length" class="export-preview">
-        <div class="export-preview-header">
-          <div>
-            <strong>Zotero 导出预览</strong>
-            <span>
-              {{ exportPreview.length }} 篇文章 · {{ settings.zotero_export_mode }} ·
-              {{ zoteroStatus.available ? "Connector 可用" : "Connector 未连接" }}
-            </span>
-          </div>
-          <div class="actions">
-            <button type="button" @click="emit('probe-zotero')">检测 Zotero</button>
-            <label class="inline-check">
-              <input
-                :checked="exportOptions.include_pdf"
-                type="checkbox"
-                @change="
-                  emit('preview-export-selected', {
-                    ...exportOptions,
-                    include_pdf: $event.target.checked,
-                  })
-                "
-              />
-              PDF
-            </label>
-            <label class="inline-check">
-              <input
-                :checked="exportOptions.include_notes"
-                type="checkbox"
-                @change="
-                  emit('preview-export-selected', {
-                    ...exportOptions,
-                    include_notes: $event.target.checked,
-                  })
-                "
-              />
-              报告 note
-            </label>
-            <label class="inline-field">
-              导出模式
-              <select
-                :value="exportOptions.export_mode || settings.zotero_export_mode"
-                @change="
-                  emit('preview-export-selected', {
-                    ...exportOptions,
-                    export_mode: $event.target.value,
-                  })
-                "
-              >
-                <option value="prepare">仅准备 payload</option>
-                <option value="connector">Zotero Connector</option>
-                <option value="bridge">Bridge URL</option>
-              </select>
-            </label>
-            <button type="button" @click="emit('cancel-export-preview')">取消</button>
-            <button type="button" class="primary" @click="emit('confirm-export-selected')">
-              确认导出
-            </button>
-          </div>
-        </div>
-        <div class="preview-items">
-          <article v-for="item in exportPreview" :key="item.task_id" class="preview-item">
-            <strong>{{ item.title }}</strong>
-            <span>
-              {{ (item.creators || []).map((creator) => creator.name).join(", ") || "作者未知" }}
-              · {{ item.date || "年份未知" }}
-            </span>
-            <span>{{ item.DOI || item.url || "无 DOI / URL" }}</span>
-            <span>Tags: {{ (item.tags || []).join(", ") }}</span>
-            <span>Collections: {{ (item.collections || []).join(", ") || "默认目标" }}</span>
-            <small>
-              {{ (item.attachments || []).length }} attachments ·
-              {{ (item.notes || []).length }} notes · 可能重复项：未检测
-            </small>
-          </article>
-        </div>
       </section>
 
       <div v-if="visibleTasks.length === 0" class="empty-state">
@@ -503,7 +447,15 @@ function confirmGenerateSelected() {
 
       <div v-else class="article-list">
         <div class="article-head">
-          <span>文章</span>
+          <label class="select-all">
+            <input
+              type="checkbox"
+              :checked="allVisibleSelected"
+              :indeterminate="someVisibleSelected"
+              @change="toggleVisibleSelection($event.target.checked)"
+            />
+            <span>文章</span>
+          </label>
           <span>进度</span>
           <span>推荐阅读程度</span>
           <span>报告复杂度</span>
@@ -559,6 +511,92 @@ function confirmGenerateSelected() {
       </div>
     </div>
 
+    <div
+      v-if="exportPreview.length"
+      class="export-preview-backdrop"
+      @click.self="emit('cancel-export-preview')"
+    >
+      <section class="export-preview" role="dialog" aria-modal="true">
+        <div class="export-preview-header">
+          <div>
+            <strong>Zotero 导出预览</strong>
+            <span>
+              {{ exportPreview.length }} 篇文章 · {{ settings.zotero_export_mode }} ·
+              {{ zoteroStatus.available ? "Connector 可用" : "Connector 未连接" }}
+            </span>
+          </div>
+          <button type="button" class="icon-button" title="关闭预览" @click="emit('cancel-export-preview')">
+            ×
+          </button>
+        </div>
+        <div class="export-preview-actions">
+          <button type="button" @click="emit('probe-zotero')">检测 Zotero</button>
+          <label class="inline-check">
+            <input
+              :checked="exportOptions.include_pdf"
+              type="checkbox"
+              @change="
+                emit('preview-export-selected', {
+                  ...exportOptions,
+                  include_pdf: $event.target.checked,
+                })
+              "
+            />
+            PDF
+          </label>
+          <label class="inline-check">
+            <input
+              :checked="exportOptions.include_notes"
+              type="checkbox"
+              @change="
+                emit('preview-export-selected', {
+                  ...exportOptions,
+                  include_notes: $event.target.checked,
+                })
+              "
+            />
+            报告 note
+          </label>
+          <label class="inline-field">
+            导出模式
+            <select
+              :value="exportOptions.export_mode || settings.zotero_export_mode"
+              @change="
+                emit('preview-export-selected', {
+                  ...exportOptions,
+                  export_mode: $event.target.value,
+                })
+              "
+            >
+              <option value="prepare">仅准备 payload</option>
+              <option value="connector">Zotero Connector</option>
+              <option value="bridge">Bridge URL</option>
+            </select>
+          </label>
+          <button type="button" @click="emit('cancel-export-preview')">取消</button>
+          <button type="button" class="primary" @click="emit('confirm-export-selected')">
+            确认导出
+          </button>
+        </div>
+        <div class="preview-items">
+          <article v-for="item in exportPreview" :key="item.task_id" class="preview-item">
+            <strong>{{ item.title }}</strong>
+            <span>
+              {{ (item.creators || []).map((creator) => creator.name).join(", ") || "作者未知" }}
+              · {{ item.date || "年份未知" }}
+            </span>
+            <span>{{ item.DOI || item.url || "无 DOI / URL" }}</span>
+            <span>Tags: {{ (item.tags || []).join(", ") }}</span>
+            <span>Collections: {{ (item.collections || []).join(", ") || "默认目标" }}</span>
+            <small>
+              {{ (item.attachments || []).length }} attachments ·
+              {{ (item.notes || []).length }} notes · 可能重复项：未检测
+            </small>
+          </article>
+        </div>
+      </section>
+    </div>
+
     <aside v-if="inspectedTask" class="task-inspector">
       <header>
         <div>
@@ -573,10 +611,22 @@ function confirmGenerateSelected() {
         <dl>
           <div><dt>推荐阅读程度</dt><dd>{{ recommendation(inspectedTask) }}</dd></div>
           <div><dt>报告复杂度</dt><dd>{{ reportComplexity(inspectedTask) }}</dd></div>
+          <div><dt>YOLO</dt><dd>{{ yoloLabel(inspectedTask) }}</dd></div>
           <div><dt>PDF 状态</dt><dd>{{ inspectedTask.pdf_status }}</dd></div>
           <div><dt>Zotero 状态</dt><dd>{{ zoteroState(inspectedTask) }}</dd></div>
           <div><dt>Token / 成本</dt><dd>${{ (inspectedTask.estimated_cost || 0).toFixed(4) }}</dd></div>
         </dl>
+        <div class="mini-actions yolo-actions">
+          <button type="button" :disabled="loading" @click="emit('set-task-yolo', inspectedTask, true)">
+            启用本文 YOLO
+          </button>
+          <button type="button" :disabled="loading" @click="emit('set-task-yolo', inspectedTask, false)">
+            禁用本文 YOLO
+          </button>
+          <button type="button" :disabled="loading" @click="emit('set-task-yolo', inspectedTask, null)">
+            跟随全局
+          </button>
+        </div>
       </section>
 
       <section class="inspector-section">
@@ -662,9 +712,29 @@ function confirmGenerateSelected() {
       </section>
 
       <section class="inspector-section">
-        <h4>PDF</h4>
-        <p>{{ inspectedTask.pdf?.local_path || inspectedTask.pdf?.source_url || "暂无 PDF，可 metadata-only 继续。" }}</p>
+        <h4>下载数据</h4>
+        <dl class="data-list">
+          <div>
+            <dt>缓存目录</dt>
+            <dd>{{ debugInfo.data_dir || "未知" }}</dd>
+          </div>
+          <div>
+            <dt>PDF 文件</dt>
+            <dd>{{ inspectedTask.pdf?.local_path || "暂无本地缓存文件" }}</dd>
+          </div>
+          <div>
+            <dt>来源 URL</dt>
+            <dd>{{ inspectedTask.pdf?.source_url || inspectedTask.paper?.urls?.[0] || "暂无" }}</dd>
+          </div>
+          <div v-if="inspectedTask.pdf?.failure_reason || inspectedTask.failure_reason">
+            <dt>失败原因</dt>
+            <dd>{{ inspectedTask.pdf?.failure_reason || inspectedTask.failure_reason }}</dd>
+          </div>
+        </dl>
         <div class="mini-actions">
+          <button type="button" :disabled="!debugInfo.data_dir" @click="openDataDir">
+            打开 data 目录
+          </button>
           <button
             type="button"
             :disabled="!inspectedTask.pdf?.local_path"
@@ -696,6 +766,51 @@ function confirmGenerateSelected() {
             替换 PDF
           </button>
         </div>
+      </section>
+
+      <section class="inspector-section">
+        <h4>PDF 解析结果</h4>
+        <dl class="data-list">
+          <div>
+            <dt>解析状态</dt>
+            <dd>{{ inspectedTask.parser_status }}</dd>
+          </div>
+          <div>
+            <dt>解析质量</dt>
+            <dd>{{ inspectedTask.parsed?.parse_quality || "暂无" }}</dd>
+          </div>
+          <div>
+            <dt>Sections</dt>
+            <dd>{{ parsedSections(inspectedTask).length }}</dd>
+          </div>
+          <div>
+            <dt>References</dt>
+            <dd>{{ inspectedTask.parsed?.references?.length || 0 }}</dd>
+          </div>
+        </dl>
+
+        <div v-if="parsedSections(inspectedTask).length" class="parsed-preview">
+          <details
+            v-for="[heading, content] in parsedSections(inspectedTask)"
+            :key="`${inspectedTask.task_id}-parsed-${heading}`"
+          >
+            <summary>{{ heading }}</summary>
+            <pre>{{ content }}</pre>
+          </details>
+        </div>
+        <p v-else>还没有可展示的 PDF 解析文本。可以重试解析，或在 metadata-only 状态下继续评估。</p>
+
+        <details v-if="inspectedTask.parsed?.references?.length" class="parsed-references">
+          <summary>References</summary>
+          <ol>
+            <li
+              v-for="(reference, index) in inspectedTask.parsed.references"
+              :key="`${inspectedTask.task_id}-ref-${index}`"
+            >
+              {{ reference }}
+            </li>
+          </ol>
+        </details>
       </section>
 
       <section class="inspector-section">
@@ -772,9 +887,10 @@ function confirmGenerateSelected() {
           class="primary"
           :disabled="loading"
           @click="
-            !selectedTaskIds.has(inspectedTask.task_id) &&
-              emit('toggle-selection', inspectedTask.task_id);
-            emit('preview-export-selected', exportOptions);
+            emit('preview-export-selected', {
+              ...exportOptions,
+              task_ids: [inspectedTask.task_id],
+            })
           "
         >
           预览并导出

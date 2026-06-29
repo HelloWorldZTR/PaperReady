@@ -13,7 +13,6 @@ def test_task_api_round_trip(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PAPERREADY_DB_PATH", str(tmp_path / "paperready.db"))
     monkeypatch.setenv("PAPERREADY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(downloader, "_download_pdf", lambda _url, path: path.write_bytes(b"%PDF-1.4") and None)
-    monkeypatch.setattr(locator, "search_title", lambda _title: [])
     monkeypatch.setattr(
         api_module,
         "probe_zotero",
